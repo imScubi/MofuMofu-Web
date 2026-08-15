@@ -36,6 +36,8 @@ export interface RegistrationRow {
   tiktok: string | null;
   other_social: string | null;
   business_category: string;
+  /** Qué vende exactamente (los registros previos a este campo no lo tienen). */
+  product_details: string | null;
   needs_electricity: boolean;
   electricity_details: string | null;
   needs_gas: boolean;

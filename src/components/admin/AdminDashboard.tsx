@@ -308,7 +308,14 @@ export function AdminDashboard({
                     </span>
                   )}
                 </Td>
-                <Td>{r.business_category}</Td>
+                <Td>
+                  {r.business_category}
+                  {r.product_details && (
+                    <div className="mt-0.5 max-w-[240px] text-xs text-ink-soft">
+                      {r.product_details}
+                    </div>
+                  )}
+                </Td>
                 <Td>
                   {formatMoney(Number(r.amount_reported))}
                   <div className="text-xs text-ink-soft">

@@ -146,6 +146,13 @@ export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicket
       <Link href="/registro/completar" className="mt-3.5 block">
         <Button className="w-full">Completar mi pago</Button>
       </Link>
+      {/* Sin esta salida la pantalla del folio es un callejón: la única
+          forma de volver era el botón atrás del navegador. */}
+      <Link href="/" className="mt-2 block">
+        <Button variant="ghost" className="w-full">
+          Volver al inicio
+        </Button>
+      </Link>
     </div>
   );
 }

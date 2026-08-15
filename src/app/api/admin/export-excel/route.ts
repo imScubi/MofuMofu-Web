@@ -98,6 +98,7 @@ export async function GET(request: Request) {
     { header: "Facebook", key: "facebook", width: 18 },
     { header: "TikTok", key: "tiktok", width: 18 },
     { header: "Giro del negocio", key: "category", width: 20 },
+    { header: "Qué vende", key: "products", width: 34 },
     { header: "Electricidad", key: "electricity", width: 14 },
     { header: "Detalle electricidad", key: "electricityDetails", width: 24 },
     { header: "Gas", key: "gas", width: 10 },
@@ -115,6 +116,10 @@ export async function GET(request: Request) {
   ];
   regSheet.getRow(1).font = { bold: true };
 
+  // Las letras se derivan de las columnas: escribirlas a mano hace que
+  // agregar una columna rompa en silencio todas las fórmulas del resumen.
+  const col = (key: string) => regSheet.getColumn(key).letter;
+
   registrations.forEach((r) => {
     const rowNumber = regSheet.rowCount + 1;
 
@@ -129,6 +134,7 @@ export async function GET(request: Request) {
       facebook: r.facebook ?? "",
       tiktok: r.tiktok ?? "",
       category: r.business_category,
+      products: r.product_details ?? "",
       electricity: r.needs_electricity ? "Sí" : "No",
       electricityDetails: r.electricity_details ?? "",
       gas: r.needs_gas ? "Sí" : "No",
@@ -137,7 +143,9 @@ export async function GET(request: Request) {
       shared: r.is_shared ? "Sí" : "No",
       planPrice: Number(r.plan_price),
       amount: Number(r.amount_reported),
-      balance: { formula: `Q${rowNumber}-R${rowNumber}` },
+      balance: {
+        formula: `${col("planPrice")}${rowNumber}-${col("amount")}${rowNumber}`,
+      },
       status: REG_STATUS_LABEL[r.status] ?? r.status,
       reglamento: r.reglamento_accepted ? "Sí" : "No",
       giros: r.restricted_giros_accepted ? "Sí" : "No",
@@ -151,13 +159,13 @@ export async function GET(request: Request) {
     row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
   });
 
-  // Columnas de la hoja "Registros": O = Plan, Q = Precio del plan,
-  // R = Monto reportado, T = Estatus.
-  const regLastRow = registrations.length + 1;
-  const planRange = `Registros!O2:O${Math.max(regLastRow, 2)}`;
-  const planPriceRange = `Registros!Q2:Q${Math.max(regLastRow, 2)}`;
-  const amountRange = `Registros!R2:R${Math.max(regLastRow, 2)}`;
-  const statusRange = `Registros!T2:T${Math.max(regLastRow, 2)}`;
+  const regLastRow = Math.max(registrations.length + 1, 2);
+  const range = (key: string) =>
+    `Registros!${col(key)}2:${col(key)}${regLastRow}`;
+  const planRange = range("plan");
+  const planPriceRange = range("planPrice");
+  const amountRange = range("amount");
+  const statusRange = range("status");
 
   // ---------------------------------------------------------------
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores

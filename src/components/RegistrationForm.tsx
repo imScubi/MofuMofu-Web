@@ -20,6 +20,7 @@ import { formatEventDates } from "@/lib/formatDates";
 import {
   fileInputClass,
   formErrorBoxClass,
+  helpClass,
   inputClass,
   labelClass,
 } from "@/lib/formClasses";
@@ -58,6 +59,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const [facebook, setFacebook] = useState("");
   const [tiktok, setTiktok] = useState("");
   const [businessCategory, setBusinessCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
+  const [productDetails, setProductDetails] = useState("");
   const [needsElectricity, setNeedsElectricity] = useState(false);
   const [electricityDetails, setElectricityDetails] = useState("");
   const [needsGas, setNeedsGas] = useState(false);
@@ -73,6 +75,11 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const [paymentProof2, setPaymentProof2] = useState<File | null>(null);
 
   const eventStands = selectedEvent ? (standsByEvent[selectedEvent.id] ?? []) : [];
+
+  // Con una sola edición nunca existe el paso de elegirla: mostrarlo
+  // dejaría un paso "completado" al que nadie puede volver.
+  const visibleSteps =
+    events.length === 1 ? STEP_LABELS.filter((s) => s.key !== "event") : STEP_LABELS;
 
   // El error del paso de pago queda debajo de un formulario largo: si no
   // se trae a la vista, el envío fallido se siente como "no pasó nada".
@@ -95,6 +102,10 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   function handleContinueToPayment() {
     if (!businessName.trim() || !contactName.trim() || !phone.trim()) {
       setInfoError("Completa nombre del negocio, contacto y teléfono para continuar.");
+      return;
+    }
+    if (!productDetails.trim()) {
+      setInfoError("Describe qué productos vas a vender en tu stand.");
       return;
     }
     if (needsElectricity && !electricityDetails.trim()) {
@@ -150,6 +161,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     formData.set("facebook", facebook.trim());
     formData.set("tiktok", tiktok.trim());
     formData.set("businessCategory", businessCategory);
+    formData.set("productDetails", productDetails.trim());
     formData.set("needsElectricity", String(needsElectricity));
     formData.set("electricityDetails", electricityDetails.trim());
     formData.set("needsGas", String(needsGas));
@@ -235,12 +247,14 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
   return (
     <div className="mx-auto max-w-3xl">
-      <Steps current={step} />
+      {/* Los pasos ya recorridos funcionan como botones: es el camino de
+          regreso que la gente busca primero, antes que el botón "Atrás". */}
+      <Steps steps={visibleSteps} current={step} onGo={setStep} />
 
       {step === "event" && (
         <Card className="mt-6 p-6">
           <h2 className="font-heading text-xl font-bold text-ink">
-            1. Elige la edición del evento
+            Elige la edición del evento
           </h2>
           <p className="mt-1 text-sm text-ink-soft">
             Cada edición tiene sus propias fechas y su propio mapa de stands.
@@ -272,20 +286,9 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
       {step === "map" && selectedEvent && (
         <Card className="mt-6 p-6">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 className="font-heading text-xl font-bold text-ink">
-              2. Elige tu stand en el mapa
-            </h2>
-            {events.length > 1 && (
-              <button
-                type="button"
-                onClick={() => setStep("event")}
-                className="text-sm text-pink-600 underline"
-              >
-                Cambiar edición
-              </button>
-            )}
-          </div>
+          <h2 className="font-heading text-xl font-bold text-ink">
+            Elige tu stand en el mapa
+          </h2>
           <p className="mt-1 text-sm text-ink-soft">
             {selectedEvent.name} ·{" "}
             {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
@@ -328,7 +331,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
             </div>
           )}
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm text-ink-soft">
               {selectedStandId && selectedPlan
                 ? `Stand #${selectedStandId} · ${selectedPlan.categoryLabel} (${selectedPlan.days} ${
@@ -338,12 +341,20 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                   ? "Elige un plan para continuar"
                   : "Aún no has elegido un stand"}
             </span>
-            <Button
-              disabled={!selectedStandId || !selectedPlan}
-              onClick={() => setStep("info")}
-            >
-              Continuar
-            </Button>
+            <div className="flex items-center justify-between gap-3">
+              {events.length > 1 && (
+                <Button type="button" variant="ghost" onClick={() => setStep("event")}>
+                  ← Cambiar edición
+                </Button>
+              )}
+              <Button
+                type="button"
+                disabled={!selectedStandId || !selectedPlan}
+                onClick={() => setStep("info")}
+              >
+                Continuar
+              </Button>
+            </div>
           </div>
         </Card>
       )}
@@ -353,7 +364,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
           <div className={step === "info" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
               <h2 className="font-heading text-xl font-bold text-ink">
-                3. Cuéntanos de tu negocio
+                Cuéntanos de tu negocio
               </h2>
 
               <Field
@@ -418,6 +429,28 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                     </option>
                   ))}
                 </select>
+              </div>
+
+              {/* La categoría de arriba es demasiado amplia para saber si un
+                  negocio cae en un giro restringido o se repite con otro
+                  expositor, así que además pedimos el detalle a mano. */}
+              <div>
+                <label className={labelClass} htmlFor="productDetails">
+                  ¿Qué vendes exactamente?<span className="text-pink-600"> *</span>
+                </label>
+                <textarea
+                  id="productDetails"
+                  value={productDetails}
+                  onChange={(e) => setProductDetails(e.target.value)}
+                  placeholder="Ejemplo: aretes y collares de resina hechos a mano. O: crepas dulces, café frío y limonadas."
+                  className={inputClass}
+                  rows={3}
+                  maxLength={300}
+                />
+                <p className={helpClass}>
+                  Escribe los productos concretos que vas a llevar, aunque ya
+                  hayas elegido una categoría arriba.
+                </p>
               </div>
 
               <div>
@@ -759,7 +792,12 @@ function Field({
   );
 }
 
-const STEP_LABELS: { key: Step; label: string }[] = [
+interface StepLabel {
+  key: Step;
+  label: string;
+}
+
+const STEP_LABELS: StepLabel[] = [
   { key: "event", label: "Edición" },
   { key: "map", label: "Stand" },
   { key: "info", label: "Negocio" },
@@ -771,52 +809,82 @@ const STEP_LABELS: { key: Step; label: string }[] = [
  * En móvil los cinco pasos con etiqueta no caben en 390px, así que ahí
  * sólo se ven los puntos y una línea con el paso actual; las etiquetas
  * completas aparecen desde 640px.
+ *
+ * Los pasos ya completados son botones: tocarlos regresa a ese paso sin
+ * perder nada de lo capturado. Los pasos que aún no se llegan no lo son,
+ * porque saltar adelante dejaría datos obligatorios sin llenar.
  */
-function Steps({ current }: { current: Step }) {
-  const currentIndex = STEP_LABELS.findIndex((s) => s.key === current);
-  const currentLabel = STEP_LABELS[currentIndex]?.label ?? "";
+function Steps({
+  steps,
+  current,
+  onGo,
+}: {
+  steps: StepLabel[];
+  current: Step;
+  onGo: (step: Step) => void;
+}) {
+  const currentIndex = steps.findIndex((s) => s.key === current);
+  const currentLabel = steps[currentIndex]?.label ?? "";
 
   return (
     <div>
       <div className="flex items-center gap-2 sm:gap-2.5">
-        {STEP_LABELS.map((s, i) => {
+        {steps.map((s, i) => {
           const done = i < currentIndex;
           const active = i === currentIndex;
+          const navigable = done;
+
+          const marker = (
+            <>
+              <span
+                className={clsx(
+                  "flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold",
+                  done && "bg-mint-500 text-white",
+                  active && "bg-pink-500 text-white ring-4 ring-pink-100",
+                  !done && !active && "border-2 border-pink-100 bg-white text-ink-soft"
+                )}
+              >
+                {done ? (
+                  <svg viewBox="0 0 16 16" fill="none" className="h-[13px] w-[13px]" aria-hidden="true">
+                    <path
+                      d="M3.2 8.6l3 3L12.8 5"
+                      stroke="currentColor"
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                ) : (
+                  i + 1
+                )}
+              </span>
+              <span
+                className={clsx(
+                  "hidden text-sm sm:inline",
+                  active ? "font-extrabold text-pink-700" : "font-semibold text-ink-soft",
+                  navigable && "underline decoration-mint-500 decoration-2 underline-offset-4"
+                )}
+              >
+                {s.label}
+              </span>
+            </>
+          );
+
           return (
             <div key={s.key} className="flex flex-1 items-center gap-2 last:flex-none">
-              <div className="flex shrink-0 items-center gap-2">
-                <span
-                  className={clsx(
-                    "flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold",
-                    done && "bg-mint-500 text-white",
-                    active && "bg-pink-500 text-white ring-4 ring-pink-100",
-                    !done && !active && "border-2 border-pink-100 bg-white text-ink-soft"
-                  )}
+              {navigable ? (
+                <button
+                  type="button"
+                  onClick={() => onGo(s.key)}
+                  aria-label={`Volver al paso ${i + 1}: ${s.label}`}
+                  className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300/60"
                 >
-                  {done ? (
-                    <svg viewBox="0 0 16 16" fill="none" className="h-[13px] w-[13px]" aria-hidden="true">
-                      <path
-                        d="M3.2 8.6l3 3L12.8 5"
-                        stroke="currentColor"
-                        strokeWidth={2.4}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  ) : (
-                    i + 1
-                  )}
-                </span>
-                <span
-                  className={clsx(
-                    "hidden text-sm sm:inline",
-                    active ? "font-extrabold text-pink-700" : "font-semibold text-ink-soft"
-                  )}
-                >
-                  {s.label}
-                </span>
-              </div>
-              {i < STEP_LABELS.length - 1 && (
+                  {marker}
+                </button>
+              ) : (
+                <div className="flex shrink-0 items-center gap-2">{marker}</div>
+              )}
+              {i < steps.length - 1 && (
                 <span
                   className={clsx(
                     "h-[3px] flex-1 rounded-full sm:w-7 sm:flex-none",
@@ -829,9 +897,14 @@ function Steps({ current }: { current: Step }) {
         })}
       </div>
       <p className="mt-3 font-heading text-[15px] font-bold text-ink sm:hidden">
-        Paso {currentIndex + 1} de {STEP_LABELS.length} ·{" "}
+        Paso {currentIndex + 1} de {steps.length} ·{" "}
         <span className="text-pink-700">{currentLabel}</span>
       </p>
+      {currentIndex > 0 && (
+        <p className="mt-1 text-[13px] text-ink-soft sm:hidden">
+          Toca un paso verde para regresar.
+        </p>
+      )}
     </div>
   );
 }
