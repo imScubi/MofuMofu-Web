@@ -40,10 +40,12 @@ Edita `src/lib/eventConfig.ts` para:
 - Datos bancarios que se le muestran al expositor para transferir
 - Categorías de "giro del negocio"
 
-El mapa de stands (posiciones, cuáles son reservables) vive en
-`src/lib/standLayout.ts`. Está armado a partir del plano del evento
-(filas 1-13, 14-19 en la curva, 20-32+39+40, 33-38, y el módulo "A" de
-informes). Si cambia el plano, ajusta las coordenadas ahí.
+El mapa interactivo usa la imagen real del plano (`public/stand-map.webp`)
+como fondo, con un botón invisible superpuesto sobre cada stand. Las
+coordenadas de cada botón (calibradas a mano en píxeles sobre esa imagen)
+viven en `src/lib/standLayout.ts`. Si el plano cambia, hay que reemplazar
+`public/stand-map.webp` y volver a calibrar las coordenadas `x`/`y` de cada
+stand contra la nueva imagen.
 
 ## Variables de entorno
 
