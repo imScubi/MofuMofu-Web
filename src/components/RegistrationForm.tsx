@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import clsx from "clsx";
 import { StandMap } from "@/components/StandMap";
+import { ReglamentoStep } from "@/components/ReglamentoStep";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
@@ -13,32 +14,37 @@ import {
   STAND_INCLUDES,
   type PricingPlan,
 } from "@/lib/eventConfig";
-import type { StandRow } from "@/lib/types";
+import { formatEventDates } from "@/lib/formatDates";
+import type { EventRow, EventStandRow } from "@/lib/types";
 
 interface RegistrationFormProps {
-  initialStands: StandRow[];
+  events: EventRow[];
+  standsByEvent: Record<string, EventStandRow[]>;
 }
 
-type Step = "map" | "info" | "payment" | "done";
+type Step = "event" | "map" | "info" | "reglamento" | "payment" | "done";
 
 const inputClass =
   "w-full rounded-2xl border border-pink-100 bg-white px-4 py-2.5 text-ink placeholder:text-ink-soft/60 focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-100";
 const labelClass = "text-sm font-semibold text-ink";
 
-// Nota: el formulario NO usa el atributo HTML `required`. Los 3 pasos
+// Nota: el formulario NO usa el atributo HTML `required`. Varios pasos
 // viven en el mismo <form> (los pasos anteriores solo se ocultan con
 // CSS para no perder sus datos), y un campo "requerido" oculto puede
 // hacer que el navegador bloquee el envío sin mostrar ningún error
 // visible. Toda la validación se hace a mano en JS, con mensajes
 // explícitos, para evitar ese silencio.
 
-export function RegistrationForm({ initialStands }: RegistrationFormProps) {
-  const [step, setStep] = useState<Step>("map");
+export function RegistrationForm({ events, standsByEvent }: RegistrationFormProps) {
+  const [step, setStep] = useState<Step>(events.length === 1 ? "map" : "event");
+  const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(
+    events.length === 1 ? events[0] : null
+  );
   const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [folio, setFolio] = useState<string | null>(null);
+  const [folio, setFolio] = useState<number | null>(null);
 
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -54,13 +60,23 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [gasDetails, setGasDetails] = useState("");
   const [infoError, setInfoError] = useState<string | null>(null);
 
+  const [reglamentoAccepted, setReglamentoAccepted] = useState(false);
+  const [girosAccepted, setGirosAccepted] = useState(false);
+  const [reglamentoError, setReglamentoError] = useState<string | null>(null);
+
   const [amountReported, setAmountReported] = useState("");
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [paymentProof2, setPaymentProof2] = useState<File | null>(null);
 
-  function handleContinueToInfo() {
-    setInfoError(null);
-    setStep("info");
+  const eventStands = selectedEvent ? (standsByEvent[selectedEvent.id] ?? []) : [];
+
+  function handleSelectEvent(event: EventRow) {
+    setSelectedEvent(event);
+    setSelectedStandId(null);
+    setSelectedPlan(null);
+    setReglamentoAccepted(false);
+    setGirosAccepted(false);
+    setStep("map");
   }
 
   function handleContinueToPayment() {
@@ -73,13 +89,28 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
       return;
     }
     setInfoError(null);
+    setStep("reglamento");
+  }
+
+  function handleContinueFromReglamento() {
+    if (!reglamentoAccepted) {
+      setReglamentoError("Debes leer y aceptar el reglamento para continuar.");
+      return;
+    }
+    if (selectedEvent?.restricted_giros_enabled && !girosAccepted) {
+      setReglamentoError(
+        "Debes aceptar la cláusula sobre los giros restringidos para continuar."
+      );
+      return;
+    }
+    setReglamentoError(null);
     setAmountReported((prev) => prev || String(selectedPlan?.price ?? ""));
     setStep("payment");
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!selectedStandId || !selectedPlan) return;
+    if (!selectedEvent || !selectedStandId || !selectedPlan) return;
 
     const amount = Number(amountReported);
     if (!amountReported || Number.isNaN(amount) || amount < 0) {
@@ -95,6 +126,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
     setError(null);
 
     const formData = new FormData();
+    formData.set("eventId", selectedEvent.id);
     formData.set("standId", selectedStandId);
     formData.set("planId", selectedPlan.id);
     formData.set("businessName", businessName.trim());
@@ -110,6 +142,8 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
     formData.set("needsGas", String(needsGas));
     formData.set("gasDetails", gasDetails.trim());
     formData.set("amountReported", String(amount));
+    formData.set("reglamentoAccepted", String(reglamentoAccepted));
+    formData.set("restrictedGirosAccepted", String(girosAccepted));
     formData.set("paymentProof", paymentProof);
     if (paymentProof2) formData.set("paymentProof2", paymentProof2);
 
@@ -130,7 +164,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
         return;
       }
 
-      setFolio(data.id);
+      setFolio(data.folio_number);
       setStep("done");
     } catch {
       setError("Ocurrió un error de conexión. Intenta de nuevo.");
@@ -151,20 +185,20 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
           ¡Tu registro quedó apartado!
         </h2>
         <p className="mt-2 text-ink-soft">
-          Stand <span className="font-bold text-pink-600">#{selectedStandId}</span>{" "}
-          reservado. Estamos revisando tu comprobante de pago, te confirmaremos por
-          correo o WhatsApp en cuanto quede aprobado.
+          Stand <span className="font-bold text-pink-600">#{selectedStandId}</span> en{" "}
+          <span className="font-semibold text-ink">{selectedEvent?.name}</span>.
+          Estamos revisando tu comprobante de pago, te confirmaremos por correo o
+          WhatsApp en cuanto quede aprobado.
         </p>
         {folio && (
           <>
-            <p className="mt-4 rounded-2xl bg-pink-50 px-4 py-2 text-sm text-ink-soft">
-              Folio de tu registro:{" "}
-              <span className="font-mono font-semibold text-ink">{folio}</span>
-            </p>
+            <div className="mt-5 rounded-2xl bg-pink-50 px-4 py-4">
+              <p className="text-sm text-ink-soft">Tu folio</p>
+              <p className="font-heading text-3xl font-bold text-pink-600">#{folio}</p>
+            </div>
             <p className="mt-3 text-xs text-ink-soft">
               Guarda este folio. Si vas a completar tu pago en otro momento (por
-              ejemplo, primero un anticipo y después el resto), lo vas a necesitar
-              en{" "}
+              ejemplo, primero un anticipo y después el resto), lo vas a necesitar en{" "}
               <a href="/registro/completar" className="font-semibold text-pink-600 underline">
                 completar mi pago
               </a>{" "}
@@ -180,17 +214,66 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
     <div className="mx-auto max-w-3xl">
       <Steps current={step} />
 
-      {step === "map" && (
+      {step === "event" && (
         <Card className="mt-6 p-6">
           <h2 className="font-heading text-xl font-bold text-ink">
-            1. Elige tu stand en el mapa
+            1. Elige la edición del evento
           </h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Cada edición tiene sus propias fechas y su propio mapa de stands.
+          </p>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            {events.map((event) => (
+              <button
+                key={event.id}
+                type="button"
+                onClick={() => handleSelectEvent(event)}
+                className="rounded-2xl border-2 border-pink-100 bg-white p-4 text-left transition-colors hover:border-pink-300"
+              >
+                <p className="font-heading font-semibold text-ink">{event.name}</p>
+                <p className="mt-1 text-sm text-ink-soft">
+                  {formatEventDates(event.date_start, event.date_end)}
+                </p>
+                <p className="mt-1 text-xs text-ink-soft">
+                  Límite de pago:{" "}
+                  {new Date(event.payment_deadline + "T00:00:00").toLocaleDateString(
+                    "es-MX",
+                    { day: "numeric", month: "long", year: "numeric" }
+                  )}
+                </p>
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {step === "map" && selectedEvent && (
+        <Card className="mt-6 p-6">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 className="font-heading text-xl font-bold text-ink">
+              2. Elige tu stand en el mapa
+            </h2>
+            {events.length > 1 && (
+              <button
+                type="button"
+                onClick={() => setStep("event")}
+                className="text-sm text-pink-600 underline"
+              >
+                Cambiar edición
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-ink-soft">
+            {selectedEvent.name} ·{" "}
+            {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
+          </p>
           <p className="mt-1 text-sm text-ink-soft">
             Toca un espacio disponible (verde menta) para seleccionarlo.
           </p>
           <div className="mt-4">
             <StandMap
-              initialStands={initialStands}
+              eventId={selectedEvent.id}
+              initialStands={eventStands}
               selectedId={selectedStandId}
               onSelect={(id) => setSelectedStandId(id)}
             />
@@ -232,19 +315,22 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                   ? "Elige un plan para continuar"
                   : "Aún no has elegido un stand"}
             </span>
-            <Button disabled={!selectedStandId || !selectedPlan} onClick={handleContinueToInfo}>
+            <Button
+              disabled={!selectedStandId || !selectedPlan}
+              onClick={() => setStep("info")}
+            >
               Continuar
             </Button>
           </div>
         </Card>
       )}
 
-      {(step === "info" || step === "payment") && (
+      {(step === "info" || step === "reglamento" || step === "payment") && (
         <form onSubmit={handleSubmit}>
           <div className={step === "info" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
               <h2 className="font-heading text-xl font-bold text-ink">
-                2. Cuéntanos de tu negocio
+                3. Cuéntanos de tu negocio
               </h2>
 
               <Field
@@ -370,10 +456,33 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
             </Card>
           </div>
 
+          <div className={step === "reglamento" ? "" : "hidden"}>
+            <ReglamentoStep
+              showRestrictedGiros={selectedEvent?.restricted_giros_enabled ?? false}
+              reglamentoAccepted={reglamentoAccepted}
+              onReglamentoAcceptedChange={setReglamentoAccepted}
+              girosAccepted={girosAccepted}
+              onGirosAcceptedChange={setGirosAccepted}
+            />
+            {reglamentoError && (
+              <p className="mt-3 rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+                {reglamentoError}
+              </p>
+            )}
+            <div className="mt-4 flex items-center justify-between">
+              <Button type="button" variant="ghost" onClick={() => setStep("info")}>
+                ← Atrás
+              </Button>
+              <Button type="button" onClick={handleContinueFromReglamento}>
+                Acepto y continuar
+              </Button>
+            </div>
+          </div>
+
           <div className={step === "payment" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
               <h2 className="font-heading text-xl font-bold text-ink">
-                3. Confirma tu pago
+                5. Confirma tu pago
               </h2>
 
               <div className="rounded-2xl bg-lavender-100/60 p-4 text-sm">
@@ -386,6 +495,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                   <p>Banco: {EVENT_CONFIG.bankInfo.bank}</p>
                   <p>Titular: {EVENT_CONFIG.bankInfo.accountHolder}</p>
                   <p>CLABE: {EVENT_CONFIG.bankInfo.clabe}</p>
+                  <p>Tarjeta: {EVENT_CONFIG.bankInfo.cardNumber}</p>
                   <p>Concepto sugerido: {EVENT_CONFIG.bankInfo.concept}</p>
                 </div>
               </div>
@@ -430,7 +540,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
               )}
 
               <div className="flex items-center justify-between pt-2">
-                <Button type="button" variant="ghost" onClick={() => setStep("info")}>
+                <Button type="button" variant="ghost" onClick={() => setStep("reglamento")}>
                   ← Atrás
                 </Button>
                 <Button type="submit" disabled={submitting}>
@@ -501,19 +611,21 @@ function Field({
 }
 
 const STEP_LABELS: { key: Step; label: string }[] = [
+  { key: "event", label: "Edición" },
   { key: "map", label: "Stand" },
   { key: "info", label: "Negocio" },
+  { key: "reglamento", label: "Reglamento" },
   { key: "payment", label: "Pago" },
 ];
 
 function Steps({ current }: { current: Step }) {
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === current);
   return (
-    <div className="flex items-center justify-center gap-3">
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
       {STEP_LABELS.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-3">
+        <div key={s.key} className="flex items-center gap-2">
           <div
-            className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
               i <= currentIndex
                 ? "bg-pink-500 text-white"
                 : "bg-pink-100 text-ink-soft"
@@ -529,7 +641,7 @@ function Steps({ current }: { current: Step }) {
             {s.label}
           </span>
           {i < STEP_LABELS.length - 1 && (
-            <div className="h-px w-8 bg-pink-100 sm:w-16" />
+            <div className="h-px w-4 bg-pink-100 sm:w-8" />
           )}
         </div>
       ))}

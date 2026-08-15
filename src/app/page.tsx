@@ -1,15 +1,12 @@
 import Link from "next/link";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
+import { formatDate, formatEventDates } from "@/lib/formatDates";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import type { EventRow } from "@/lib/types";
 
-const eventDateLabel = new Date(EVENT_CONFIG.eventDate + "T00:00:00").toLocaleDateString(
-  "es-MX",
-  { day: "numeric", month: "long", year: "numeric" }
-);
-const deadlineLabel = new Date(
-  EVENT_CONFIG.paymentDeadline + "T00:00:00"
-).toLocaleDateString("es-MX", { day: "numeric", month: "long", year: "numeric" });
+export const dynamic = "force-dynamic";
 
 const steps = [
   {
@@ -29,7 +26,16 @@ const steps = [
   },
 ];
 
-export default function Home() {
+export default async function Home() {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("events")
+    .select("*")
+    .eq("is_open", true)
+    .order("date_start");
+
+  const events = (data as EventRow[]) ?? [];
+
   return (
     <main className="flex-1">
       <section className="relative overflow-hidden px-6 pt-16 pb-20 sm:pt-24 sm:pb-28">
@@ -45,8 +51,8 @@ export default function Home() {
             {EVENT_CONFIG.name}
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-lg text-ink-soft">
-            Aparta tu stand para el {eventDateLabel}. Selecciona tu lugar en el
-            mapa, cuéntanos de tu negocio y confirma tu pago en unos minutos.
+            Aparta tu stand: selecciona tu lugar en el mapa, cuéntanos de tu negocio
+            y confirma tu pago en unos minutos.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/registro">
@@ -54,10 +60,6 @@ export default function Home() {
             </Link>
           </div>
           <p className="mt-4 text-sm text-ink-soft">
-            Fecha límite de pago:{" "}
-            <span className="font-semibold text-ink">{deadlineLabel}</span>
-          </p>
-          <p className="mt-2 text-sm text-ink-soft">
             ¿Ya reservaste y vas a completar tu pago?{" "}
             <Link href="/registro/completar" className="font-semibold text-pink-600 underline">
               Completa tu pago aquí
@@ -65,6 +67,29 @@ export default function Home() {
           </p>
         </div>
       </section>
+
+      {events.length > 0 && (
+        <section className="px-6 pb-16">
+          <div className="mx-auto max-w-4xl">
+            <h2 className="font-heading text-center text-2xl font-bold text-ink">
+              Próximas fechas
+            </h2>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {events.map((event) => (
+                <Card key={event.id} className="p-5 text-center">
+                  <p className="font-heading font-semibold text-ink">{event.name}</p>
+                  <p className="mt-1 text-sm text-pink-600">
+                    {formatEventDates(event.date_start, event.date_end)}
+                  </p>
+                  <p className="mt-2 text-xs text-ink-soft">
+                    Límite de pago: {formatDate(event.payment_deadline)}
+                  </p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="px-6 pb-20">
         <div className="mx-auto max-w-4xl grid gap-5 sm:grid-cols-3">

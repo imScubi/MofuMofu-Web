@@ -10,10 +10,11 @@ import {
   MAP_IMAGE_WIDTH,
   STAND_LAYOUT,
 } from "@/lib/standLayout";
-import type { StandRow, StandStatus } from "@/lib/types";
+import type { EventStandRow, StandStatus } from "@/lib/types";
 
 interface StandMapProps {
-  initialStands: StandRow[];
+  eventId: string;
+  initialStands: EventStandRow[];
   selectedId: string | null;
   onSelect: (standId: string) => void;
 }
@@ -51,21 +52,37 @@ const LEGEND_ITEMS: { status: StandStatus; label: string }[] = [
   { status: "blocked", label: "No disponible" },
 ];
 
-export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps) {
-  const [stands, setStands] = useState<Record<string, StandRow>>(() =>
-    Object.fromEntries(initialStands.map((s) => [s.id, s]))
+export function StandMap({
+  eventId,
+  initialStands,
+  selectedId,
+  onSelect,
+}: StandMapProps) {
+  const [stands, setStands] = useState<Record<string, EventStandRow>>(() =>
+    Object.fromEntries(initialStands.map((s) => [s.stand_id, s]))
   );
+
+  const [syncedStands, setSyncedStands] = useState(initialStands);
+  if (initialStands !== syncedStands) {
+    setSyncedStands(initialStands);
+    setStands(Object.fromEntries(initialStands.map((s) => [s.stand_id, s])));
+  }
 
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("stands-realtime")
+      .channel(`event-stands-${eventId}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "stands" },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "event_stands",
+          filter: `event_id=eq.${eventId}`,
+        },
         (payload) => {
-          const updated = payload.new as StandRow;
-          setStands((prev) => ({ ...prev, [updated.id]: updated }));
+          const updated = payload.new as EventStandRow;
+          setStands((prev) => ({ ...prev, [updated.stand_id]: updated }));
         }
       )
       .subscribe();
@@ -73,7 +90,7 @@ export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps)
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [eventId]);
 
   return (
     <div>

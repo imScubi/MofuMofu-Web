@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
-import type { RegistrationRow, RegistrationStatus, StandRow } from "@/lib/types";
+import { formatEventDates } from "@/lib/formatDates";
+import type {
+  EventRow,
+  EventStandRow,
+  RegistrationRow,
+  RegistrationStatus,
+} from "@/lib/types";
 
 interface AdminDashboardProps {
-  initialStands: StandRow[];
+  events: EventRow[];
+  selectedEvent: EventRow;
+  initialStands: EventStandRow[];
   initialRegistrations: RegistrationRow[];
 }
 
@@ -33,6 +42,8 @@ const FILTERS: { key: "all" | RegistrationStatus; label: string }[] = [
 ];
 
 export function AdminDashboard({
+  events,
+  selectedEvent,
   initialStands,
   initialRegistrations,
 }: AdminDashboardProps) {
@@ -57,21 +68,28 @@ export function AdminDashboard({
     setStands(initialStands);
   }
 
-  // "stands" es de lectura pública, así que sí llega por Realtime con la
-  // anon key. "registrations" tiene datos de contacto protegidos por RLS
-  // (sin política para anon), así que esa tabla se mantiene al día
-  // refrescando la página cada cierto tiempo (ver más abajo) en vez de
-  // una suscripción realtime.
+  // "event_stands" es de lectura pública, así que sí llega por Realtime
+  // con la anon key. "registrations" tiene datos de contacto protegidos
+  // por RLS (sin política para anon), así que esa tabla se mantiene al
+  // día refrescando la página cada cierto tiempo (ver más abajo) en vez
+  // de una suscripción realtime.
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("stands-realtime-admin")
+      .channel(`event-stands-admin-${selectedEvent.id}`)
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "stands" },
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "event_stands",
+          filter: `event_id=eq.${selectedEvent.id}`,
+        },
         (payload) => {
-          const updated = payload.new as StandRow;
-          setStands((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+          const updated = payload.new as EventStandRow;
+          setStands((prev) =>
+            prev.map((s) => (s.stand_id === updated.stand_id ? updated : s))
+          );
         }
       )
       .subscribe();
@@ -79,7 +97,7 @@ export function AdminDashboard({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [selectedEvent.id]);
 
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 20000);
@@ -87,7 +105,7 @@ export function AdminDashboard({
   }, [router]);
 
   const stats = useMemo(() => {
-    const reservable = stands.filter((s) => s.reservable);
+    const reservable = stands;
     const sold = reservable.filter((s) => s.status === "sold").length;
     const pending = reservable.filter((s) => s.status === "pending").length;
     const available = reservable.filter((s) => s.status === "available").length;
@@ -131,7 +149,9 @@ export function AdminDashboard({
         if (reg) {
           const standStatus = status === "approved" ? "sold" : status === "rejected" ? "available" : "pending";
           setStands((prev) =>
-            prev.map((s) => (s.id === reg.stand_id ? { ...s, status: standStatus } : s))
+            prev.map((s) =>
+              s.stand_id === reg.stand_id ? { ...s, status: standStatus } : s
+            )
           );
         }
       }
@@ -156,11 +176,33 @@ export function AdminDashboard({
   return (
     <div className="mx-auto max-w-6xl">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-bold text-ink">
-          Panel de expositores — {EVENT_CONFIG.name}
-        </h1>
-        <div className="flex items-center gap-2">
-          <a href="/api/admin/export-excel">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-ink">
+            Panel de expositores — {EVENT_CONFIG.name}
+          </h1>
+          <p className="mt-1 text-sm text-ink-soft">
+            {selectedEvent.name} ·{" "}
+            {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {events.length > 1 && (
+            <select
+              value={selectedEvent.id}
+              onChange={(e) => router.push(`/admin/dashboard?event=${e.target.value}`)}
+              className="rounded-2xl border border-pink-100 bg-white px-3 py-2 text-sm text-ink focus:border-pink-300 focus:outline-none"
+            >
+              {events.map((ev) => (
+                <option key={ev.id} value={ev.id}>
+                  {ev.name}
+                </option>
+              ))}
+            </select>
+          )}
+          <Link href="/admin/dashboard/eventos">
+            <Button variant="ghost">Ediciones 🗓️</Button>
+          </Link>
+          <a href={`/api/admin/export-excel?event=${selectedEvent.id}`}>
             <Button variant="secondary">Descargar Excel 📊</Button>
           </a>
           <Button variant="ghost" onClick={logout}>
@@ -214,6 +256,7 @@ export function AdminDashboard({
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead>
             <tr className="border-b border-pink-100 text-ink-soft">
+              <Th>Folio</Th>
               <Th>Stand</Th>
               <Th>Negocio</Th>
               <Th>Contacto</Th>
@@ -228,6 +271,7 @@ export function AdminDashboard({
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-pink-50 last:border-0">
+                <Td className="font-semibold text-pink-600">#{r.folio_number}</Td>
                 <Td className="font-semibold">#{r.stand_id}</Td>
                 <Td>{r.business_name}</Td>
                 <Td>
@@ -300,7 +344,7 @@ export function AdminDashboard({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <Td colSpan={9} className="py-8 text-center text-ink-soft">
+                <Td colSpan={10} className="py-8 text-center text-ink-soft">
                   No hay registros en esta categoría.
                 </Td>
               </tr>

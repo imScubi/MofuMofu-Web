@@ -1,19 +1,16 @@
-// Configuración general del evento — edita estos valores para tu evento.
+// Configuración general — lo que NO cambia entre ediciones del evento.
+// Las fechas y la fecha límite de pago viven por edición en la tabla
+// "events" y se administran desde /admin/eventos.
 export const EVENT_CONFIG = {
   name: "MofuMofu Market",
   tagline: "Registro de expositores",
-  // Fecha del evento, usada para la proyección de cobros en el Excel.
-  eventDate: "2026-10-24 2026-10-25",
-  // Fecha límite para liquidar el pago del stand.
-  paymentDeadline: "2026-10-9",
   currency: "MXN",
   // Datos bancarios a mostrar al expositor para hacer su transferencia.
-  // TODO: reemplaza esto con los datos reales de tu cuenta.
   bankInfo: {
     bank: "STP Plata",
     accountHolder: "Roberto Renne Coronado Luna",
     clabe: "646192405603826008",
-    accountNumber: "0000000000",
+    cardNumber: "0000 0000 0000 0000",
     concept: "Nombre de tu negocio + número de stand",
   },
   contactEmail: "mofumofuu.market@gmail.com",

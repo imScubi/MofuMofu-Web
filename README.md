@@ -12,33 +12,63 @@ control del dinero.
   Storage (capturas de comprobantes de pago)
 - **exceljs** para generar el Excel de expositores con fórmulas reales
 
+## Ediciones del evento
+
+El sistema maneja **varias ediciones a la vez** (por ejemplo septiembre,
+octubre y diciembre). Cada edición tiene sus propias fechas, su propia
+fecha límite de pago, su propio mapa de stands y su propio Excel.
+
+Se administran en **`/admin/dashboard/eventos`**: ahí se crea una edición
+con un selector de fechas (primer y último día del evento, más la fecha
+límite de pago), se abre o cierra el registro, y se activa o desactiva la
+lista de giros restringidos para esa fecha en particular.
+
 ## Cómo funciona
 
-1. `/registro` — el expositor elige su stand en el mapa interactivo,
-   llena sus datos de negocio y sube la captura de su transferencia.
-   Al enviarlo, una función de Postgres (`reserve_stand`) reserva el
-   stand de forma atómica: si dos personas seleccionan el mismo stand
-   casi al mismo tiempo, solo la primera lo consigue.
+1. `/registro` — el expositor elige la edición en la que quiere
+   participar, elige su stand en el mapa interactivo de esa edición,
+   llena sus datos de negocio, **lee y acepta el reglamento**, y sube la
+   captura de su transferencia. Al enviarlo, una función de Postgres
+   (`reserve_stand`) reserva el stand de forma atómica: si dos personas
+   seleccionan el mismo stand casi al mismo tiempo, solo la primera lo
+   consigue.
 2. El mapa se actualiza **en tiempo real** (Supabase Realtime) para
    todos los que estén viendo la página: en cuanto alguien aparta un
    stand, se pone en amarillo/rosa para los demás automáticamente.
-3. `/admin` — panel protegido por contraseña para revisar cada
+3. Cada registro recibe un **folio corto** (1000, 1001, …). Con ese folio
+   y su teléfono, el expositor puede volver en `/registro/completar` para
+   agregar un segundo pago al mismo registro, sin duplicarse en el Excel.
+4. `/admin` — panel protegido por contraseña para revisar cada
    registro, ver el comprobante, aprobar o rechazar, y descargar un
-   Excel siempre actualizado con:
-   - Hoja **Registros**: todos los datos de cada expositor.
-   - Hoja **Stands**: los 40 espacios con su precio y estatus.
+   Excel **por edición** con:
+   - Hoja **Registros**: todos los datos de cada expositor, incluyendo
+     folio y constancia de que aceptó el reglamento.
+   - Hoja **Stands**: los 40 espacios con su estatus en esa edición.
    - Hoja **Resumen**: fórmulas de Excel (no valores fijos) que suman
      cuántos stands hay vendidos/disponibles, cuánto dinero se ha
-     recaudado, cuánto falta por cobrar y una proyección diaria según
-     la fecha límite de pago.
+     recaudado, cuánto falta por cobrar, el desglose por plan y una
+     proyección diaria según la fecha límite de pago de esa edición.
+
+## Reglamento y giros restringidos
+
+El texto del reglamento y la lista de giros restringidos viven en
+`src/lib/reglamento.ts`. Antes de poder pagar, el expositor tiene que
+desplazarse hasta el final del reglamento (la casilla de aceptación está
+deshabilitada hasta entonces) y marcar que lo acepta; queda registrado en
+la base de datos con fecha y hora. Si la edición tiene los giros
+restringidos activados, además debe aceptar por separado la cláusula 8.8
+sobre las sanciones por llevar un giro restringido.
 
 ## Configuración del evento
 
 Edita `src/lib/eventConfig.ts` para:
-- Nombre del evento, fecha del evento y fecha límite de pago
-- Precio por defecto del stand
+- Nombre del evento
+- Planes y precios de los stands (`PRICING_PLANS`)
 - Datos bancarios que se le muestran al expositor para transferir
 - Categorías de "giro del negocio"
+
+Las fechas ya **no** viven aquí: se configuran por edición desde el panel
+de administración.
 
 El mapa interactivo usa la imagen real del plano (`public/stand-map.webp`)
 como fondo, con un botón invisible superpuesto sobre cada stand. Las
@@ -69,12 +99,19 @@ ADMIN_PASSWORD=
 
 ## Base de datos
 
-El esquema vive en `supabase/migrations/0001_init.sql` (tablas
-`stands` y `registrations`, la función `reserve_stand`, políticas de
-RLS y el bucket de Storage `payment-proofs`). Ya está aplicado en el
-proyecto de Supabase de este evento; si necesitas recrearlo en otro
-proyecto, aplica ese archivo con el SQL Editor de Supabase o con
-`supabase db push`.
+El esquema vive en `supabase/migrations/`, en orden:
+
+- `0001_init.sql`: tablas `stands` y `registrations`, la función
+  `reserve_stand`, políticas de RLS y el bucket privado de Storage
+  `payment-proofs`.
+- `0002_pricing_plans.sql`: plan y precio elegido por cada registro.
+- `0003_events.sql`: ediciones del evento (`events`), disponibilidad de
+  stands por edición (`event_stands`), folio corto y constancia de
+  aceptación del reglamento y de los giros restringidos.
+
+Ya están aplicadas en el proyecto de Supabase de este evento; si
+necesitas recrearlo en otro proyecto, aplícalas en orden con el SQL
+Editor de Supabase o con `supabase db push`.
 
 ## Desarrollo local
 

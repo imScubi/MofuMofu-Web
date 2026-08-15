@@ -52,9 +52,10 @@ export async function PATCH(
         : "pending";
 
   await supabase
-    .from("stands")
+    .from("event_stands")
     .update({ status: standStatus, updated_at: new Date().toISOString() })
-    .eq("id", registration.stand_id);
+    .eq("event_id", registration.event_id)
+    .eq("stand_id", registration.stand_id);
 
   return NextResponse.json({ ok: true });
 }

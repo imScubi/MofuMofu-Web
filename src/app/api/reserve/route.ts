@@ -7,6 +7,7 @@ import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
 export const runtime = "nodejs";
 
 const schema = z.object({
+  eventId: z.string().uuid(),
   standId: z.string().min(1),
   planId: z.string().min(1),
   businessName: z.string().trim().min(1).max(200),
@@ -23,12 +24,15 @@ const schema = z.object({
   needsGas: z.enum(["true", "false"]),
   gasDetails: z.string().trim().max(500).optional().or(z.literal("")),
   amountReported: z.coerce.number().min(0),
+  reglamentoAccepted: z.enum(["true", "false"]),
+  restrictedGirosAccepted: z.enum(["true", "false"]),
 });
 
 export async function POST(request: Request) {
   const formData = await request.formData();
 
   const parsed = schema.safeParse({
+    eventId: formData.get("eventId"),
     standId: formData.get("standId"),
     planId: formData.get("planId"),
     businessName: formData.get("businessName"),
@@ -45,6 +49,8 @@ export async function POST(request: Request) {
     needsGas: formData.get("needsGas"),
     gasDetails: formData.get("gasDetails") || "",
     amountReported: formData.get("amountReported"),
+    reglamentoAccepted: formData.get("reglamentoAccepted"),
+    restrictedGirosAccepted: formData.get("restrictedGirosAccepted"),
   });
 
   if (!parsed.success) {
@@ -61,7 +67,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Plan de stand inválido." }, { status: 400 });
   }
 
+  if (payload.reglamentoAccepted !== "true") {
+    return NextResponse.json(
+      { message: "Debes leer y aceptar el reglamento para completar tu registro." },
+      { status: 400 }
+    );
+  }
+
   const supabase = createAdminClient();
+
+  // La edición debe existir, estar abierta, y si tiene giros restringidos
+  // activados el expositor tuvo que aceptar esa cláusula.
+  const { data: eventData } = await supabase
+    .from("events")
+    .select("id, is_open, restricted_giros_enabled")
+    .eq("id", payload.eventId)
+    .maybeSingle();
+
+  if (!eventData || !eventData.is_open) {
+    return NextResponse.json(
+      { message: "Esa edición del evento ya no está abierta a registros." },
+      { status: 409 }
+    );
+  }
+
+  if (
+    eventData.restricted_giros_enabled &&
+    payload.restrictedGirosAccepted !== "true"
+  ) {
+    return NextResponse.json(
+      {
+        message:
+          "Debes aceptar la cláusula sobre los giros restringidos para completar tu registro.",
+      },
+      { status: 400 }
+    );
+  }
 
   let proofPath: string | null;
   let proofPath2: string | null;
@@ -94,6 +135,7 @@ export async function POST(request: Request) {
   }
 
   const { data, error } = await supabase.rpc("reserve_stand", {
+    p_event_id: payload.eventId,
     p_stand_id: payload.standId,
     p_business_name: payload.businessName,
     p_contact_name: payload.contactName,
@@ -115,6 +157,8 @@ export async function POST(request: Request) {
     p_plan_label: `${plan.categoryLabel} · ${plan.days} ${plan.days === 1 ? "día" : "días"}`,
     p_plan_price: plan.price,
     p_is_shared: plan.shared,
+    p_reglamento_accepted: true,
+    p_restricted_giros_accepted: payload.restrictedGirosAccepted === "true",
   });
 
   if (error) {

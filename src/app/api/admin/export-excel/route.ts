@@ -3,7 +3,8 @@ import ExcelJS from "exceljs";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EVENT_CONFIG, PRICING_PLANS } from "@/lib/eventConfig";
-import type { RegistrationRow, StandRow } from "@/lib/types";
+import { formatEventDates } from "@/lib/formatDates";
+import type { EventRow, EventStandRow, RegistrationRow } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -22,20 +23,43 @@ const STAND_STATUS_LABEL: Record<string, string> = {
 
 const MONEY_FORMAT = '"$"#,##0.00';
 
-export async function GET() {
+export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) {
     return NextResponse.json({ message: "No autorizado." }, { status: 401 });
   }
 
   const supabase = createAdminClient();
+
+  // Cada edición del evento se exporta a su propio Excel.
+  const requestedEventId = new URL(request.url).searchParams.get("event");
+  const { data: eventsData } = await supabase
+    .from("events")
+    .select("*")
+    .order("date_start");
+  const events = (eventsData as EventRow[]) ?? [];
+  const event =
+    events.find((e) => e.id === requestedEventId) ??
+    events.find((e) => e.is_open) ??
+    events[0];
+
+  if (!event) {
+    return NextResponse.json(
+      { message: "Todavía no hay ediciones del evento." },
+      { status: 404 }
+    );
+  }
+
   const [{ data: standsData }, { data: registrationsData }] = await Promise.all([
-    supabase.from("stands").select("*").order("id"),
-    supabase.from("registrations").select("*").order("created_at"),
+    supabase.from("event_stands").select("*").eq("event_id", event.id).order("stand_id"),
+    supabase
+      .from("registrations")
+      .select("*")
+      .eq("event_id", event.id)
+      .order("created_at"),
   ]);
 
-  const stands = (standsData as StandRow[]) ?? [];
+  const reservableStands = (standsData as EventStandRow[]) ?? [];
   const registrations = (registrationsData as RegistrationRow[]) ?? [];
-  const reservableStands = stands.filter((s) => s.reservable);
 
   const workbook = new ExcelJS.Workbook();
   workbook.creator = EVENT_CONFIG.name;
@@ -53,7 +77,7 @@ export async function GET() {
 
   reservableStands.forEach((s) => {
     standsSheet.addRow({
-      id: s.id,
+      id: s.stand_id,
       status: STAND_STATUS_LABEL[s.status] ?? s.status,
     });
   });
@@ -64,6 +88,7 @@ export async function GET() {
   // ---------------------------------------------------------------
   const regSheet = workbook.addWorksheet("Registros");
   regSheet.columns = [
+    { header: "Folio", key: "folio", width: 9 },
     { header: "Stand", key: "stand", width: 8 },
     { header: "Negocio", key: "business", width: 24 },
     { header: "Contacto", key: "contact", width: 20 },
@@ -83,6 +108,8 @@ export async function GET() {
     { header: "Monto reportado", key: "amount", width: 16 },
     { header: "Saldo pendiente", key: "balance", width: 16 },
     { header: "Estatus", key: "status", width: 14 },
+    { header: "Reglamento aceptado", key: "reglamento", width: 20 },
+    { header: "Giros restringidos aceptados", key: "giros", width: 26 },
     { header: "Notas admin", key: "notes", width: 24 },
     { header: "Fecha de registro", key: "createdAt", width: 18 },
   ];
@@ -92,6 +119,7 @@ export async function GET() {
     const rowNumber = regSheet.rowCount + 1;
 
     const row = regSheet.addRow({
+      folio: r.folio_number,
       stand: r.stand_id,
       business: r.business_name,
       contact: r.contact_name,
@@ -109,8 +137,10 @@ export async function GET() {
       shared: r.is_shared ? "Sí" : "No",
       planPrice: Number(r.plan_price),
       amount: Number(r.amount_reported),
-      balance: { formula: `P${rowNumber}-Q${rowNumber}` },
+      balance: { formula: `Q${rowNumber}-R${rowNumber}` },
       status: REG_STATUS_LABEL[r.status] ?? r.status,
+      reglamento: r.reglamento_accepted ? "Sí" : "No",
+      giros: r.restricted_giros_accepted ? "Sí" : "No",
       notes: r.admin_notes ?? "",
       createdAt: new Date(r.created_at),
     });
@@ -121,11 +151,13 @@ export async function GET() {
     row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
   });
 
+  // Columnas de la hoja "Registros": O = Plan, Q = Precio del plan,
+  // R = Monto reportado, T = Estatus.
   const regLastRow = registrations.length + 1;
-  const planPriceRange = `Registros!P2:P${Math.max(regLastRow, 2)}`;
-  const amountRange = `Registros!Q2:Q${Math.max(regLastRow, 2)}`;
-  const planRange = `Registros!N2:N${Math.max(regLastRow, 2)}`;
-  const statusRange = `Registros!S2:S${Math.max(regLastRow, 2)}`;
+  const planRange = `Registros!O2:O${Math.max(regLastRow, 2)}`;
+  const planPriceRange = `Registros!Q2:Q${Math.max(regLastRow, 2)}`;
+  const amountRange = `Registros!R2:R${Math.max(regLastRow, 2)}`;
+  const statusRange = `Registros!T2:T${Math.max(regLastRow, 2)}`;
 
   // ---------------------------------------------------------------
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores
@@ -135,8 +167,11 @@ export async function GET() {
   summary.getColumn(2).width = 20;
 
   let r = 1;
-  summary.getCell(`A${r}`).value = EVENT_CONFIG.name;
+  summary.getCell(`A${r}`).value = `${EVENT_CONFIG.name} — ${event.name}`;
   summary.getCell(`A${r}`).font = { bold: true, size: 14 };
+  r++;
+  summary.getCell(`A${r}`).value = formatEventDates(event.date_start, event.date_end);
+  summary.getCell(`A${r}`).font = { size: 11 };
   r += 2;
 
   summary.getCell(`A${r}`).value = "Resumen de stands";
@@ -217,7 +252,7 @@ export async function GET() {
   summary.getCell(`A${r}`).font = { bold: true };
   r++;
 
-  const deadline = new Date(EVENT_CONFIG.paymentDeadline + "T00:00:00");
+  const deadline = new Date(event.payment_deadline + "T00:00:00");
   summary.getCell(`A${r}`).value = "Fecha límite de pago";
   summary.getCell(`B${r}`).value = deadline;
   summary.getCell(`B${r}`).numFmt = "dd/mm/yyyy";
@@ -238,9 +273,13 @@ export async function GET() {
   summary.getCell(`A1`).alignment = { vertical: "middle" };
 
   const buffer = await workbook.xlsx.writeBuffer();
-  const filename = `expositores-${EVENT_CONFIG.name.replace(/\s+/g, "-").toLowerCase()}-${new Date()
-    .toISOString()
-    .slice(0, 10)}.xlsx`;
+  const slug = event.name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-zA-Z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  const filename = `expositores-${slug}-${new Date().toISOString().slice(0, 10)}.xlsx`;
 
   return new NextResponse(new Uint8Array(buffer), {
     headers: {

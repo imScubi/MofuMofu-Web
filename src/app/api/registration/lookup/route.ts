@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    id: registration.id,
+    folioNumber: registration.folio_number,
     standId: registration.stand_id,
     businessName: registration.business_name,
     planLabel: registration.plan_label,

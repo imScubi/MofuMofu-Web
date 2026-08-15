@@ -1,10 +1,22 @@
 export type StandStatus = "available" | "pending" | "sold" | "blocked";
 
-export interface StandRow {
+/** Una edición del evento (p. ej. "Edición Octubre 2026"). */
+export interface EventRow {
   id: string;
-  price: number;
+  name: string;
+  date_start: string;
+  date_end: string;
+  payment_deadline: string;
+  restricted_giros_enabled: boolean;
+  is_open: boolean;
+  created_at: string;
+}
+
+/** Disponibilidad de un stand dentro de una edición concreta. */
+export interface EventStandRow {
+  event_id: string;
+  stand_id: string;
   status: StandStatus;
-  reservable: boolean;
   updated_at: string;
 }
 
@@ -12,6 +24,8 @@ export type RegistrationStatus = "pending_review" | "approved" | "rejected";
 
 export interface RegistrationRow {
   id: string;
+  folio_number: number;
+  event_id: string;
   stand_id: string;
   business_name: string;
   contact_name: string;
@@ -33,6 +47,9 @@ export interface RegistrationRow {
   plan_label: string;
   plan_price: number;
   is_shared: boolean;
+  reglamento_accepted: boolean;
+  reglamento_accepted_at: string | null;
+  restricted_giros_accepted: boolean;
   status: RegistrationStatus;
   admin_notes: string | null;
   created_at: string;

@@ -96,7 +96,7 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({
-    id: updated.id,
+    folioNumber: updated.folio_number,
     amountReported: Number(updated.amount_reported),
     planPrice: Number(updated.plan_price),
   });

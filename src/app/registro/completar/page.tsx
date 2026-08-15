@@ -10,7 +10,7 @@ const inputClass =
 const labelClass = "text-sm font-semibold text-ink";
 
 interface RegistrationSummary {
-  id: string;
+  folioNumber: number;
   standId: string;
   businessName: string;
   planLabel: string;
@@ -141,10 +141,11 @@ export default function CompletarPagoPage() {
             <div>
               <label className={labelClass}>Folio de tu registro</label>
               <input
-                className={`${inputClass} mt-1.5 font-mono`}
+                className={`${inputClass} mt-1.5`}
                 value={folio}
                 onChange={(e) => setFolio(e.target.value)}
-                placeholder="El folio que te dimos al reservar tu stand"
+                inputMode="numeric"
+                placeholder="Ej. 1004"
               />
             </div>
             <div>
