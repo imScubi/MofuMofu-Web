@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { EVENT_CONFIG } from "@/lib/eventConfig";
+import { EVENT_CONFIG, PRICING_PLANS } from "@/lib/eventConfig";
 import type { RegistrationRow, StandRow } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -47,18 +47,15 @@ export async function GET() {
   const standsSheet = workbook.addWorksheet("Stands");
   standsSheet.columns = [
     { header: "Stand", key: "id", width: 10 },
-    { header: "Precio", key: "price", width: 14 },
     { header: "Estatus", key: "status", width: 16 },
   ];
   standsSheet.getRow(1).font = { bold: true };
 
   reservableStands.forEach((s) => {
-    const rowValues = standsSheet.addRow({
+    standsSheet.addRow({
       id: s.id,
-      price: Number(s.price),
       status: STAND_STATUS_LABEL[s.status] ?? s.status,
     });
-    rowValues.getCell("price").numFmt = MONEY_FORMAT;
   });
   const standsLastRow = reservableStands.length + 1;
 
@@ -80,7 +77,9 @@ export async function GET() {
     { header: "Detalle electricidad", key: "electricityDetails", width: 24 },
     { header: "Gas", key: "gas", width: 10 },
     { header: "Detalle gas", key: "gasDetails", width: 24 },
-    { header: "Precio stand", key: "price", width: 14 },
+    { header: "Plan", key: "plan", width: 24 },
+    { header: "Compartido", key: "shared", width: 12 },
+    { header: "Precio del plan", key: "planPrice", width: 16 },
     { header: "Monto reportado", key: "amount", width: 16 },
     { header: "Saldo pendiente", key: "balance", width: 16 },
     { header: "Estatus", key: "status", width: 14 },
@@ -90,8 +89,6 @@ export async function GET() {
   regSheet.getRow(1).font = { bold: true };
 
   registrations.forEach((r) => {
-    const stand = stands.find((s) => s.id === r.stand_id);
-    const price = Number(stand?.price ?? 0);
     const rowNumber = regSheet.rowCount + 1;
 
     const row = regSheet.addRow({
@@ -108,29 +105,33 @@ export async function GET() {
       electricityDetails: r.electricity_details ?? "",
       gas: r.needs_gas ? "Sí" : "No",
       gasDetails: r.gas_details ?? "",
-      price,
+      plan: r.plan_label,
+      shared: r.is_shared ? "Sí" : "No",
+      planPrice: Number(r.plan_price),
       amount: Number(r.amount_reported),
-      balance: { formula: `N${rowNumber}-O${rowNumber}` },
+      balance: { formula: `P${rowNumber}-Q${rowNumber}` },
       status: REG_STATUS_LABEL[r.status] ?? r.status,
       notes: r.admin_notes ?? "",
       createdAt: new Date(r.created_at),
     });
 
-    row.getCell("price").numFmt = MONEY_FORMAT;
+    row.getCell("planPrice").numFmt = MONEY_FORMAT;
     row.getCell("amount").numFmt = MONEY_FORMAT;
     row.getCell("balance").numFmt = MONEY_FORMAT;
     row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
   });
 
   const regLastRow = registrations.length + 1;
-  const amountRange = `Registros!O2:O${Math.max(regLastRow, 2)}`;
-  const statusRange = `Registros!Q2:Q${Math.max(regLastRow, 2)}`;
+  const planPriceRange = `Registros!P2:P${Math.max(regLastRow, 2)}`;
+  const amountRange = `Registros!Q2:Q${Math.max(regLastRow, 2)}`;
+  const planRange = `Registros!N2:N${Math.max(regLastRow, 2)}`;
+  const statusRange = `Registros!S2:S${Math.max(regLastRow, 2)}`;
 
   // ---------------------------------------------------------------
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores
   // ---------------------------------------------------------------
   const summary = workbook.addWorksheet("Resumen");
-  summary.getColumn(1).width = 32;
+  summary.getColumn(1).width = 34;
   summary.getColumn(2).width = 20;
 
   let r = 1;
@@ -143,9 +144,9 @@ export async function GET() {
   r++;
   const statRows: [string, string][] = [
     ["Total de stands", `COUNTA(Stands!A2:A${standsLastRow})`],
-    ["Disponibles", `COUNTIF(Stands!C2:C${standsLastRow},"Disponible")`],
-    ["En proceso de pago", `COUNTIF(Stands!C2:C${standsLastRow},"En proceso")`],
-    ["Apartados", `COUNTIF(Stands!C2:C${standsLastRow},"Apartado")`],
+    ["Disponibles", `COUNTIF(Stands!B2:B${standsLastRow},"Disponible")`],
+    ["En proceso de pago", `COUNTIF(Stands!B2:B${standsLastRow},"En proceso")`],
+    ["Apartados", `COUNTIF(Stands!B2:B${standsLastRow},"Apartado")`],
   ];
   statRows.forEach(([label, formula]) => {
     summary.getCell(`A${r}`).value = label;
@@ -159,9 +160,9 @@ export async function GET() {
   r++;
 
   const expectedRow = r;
-  summary.getCell(`A${r}`).value = "Ingreso esperado (stands apartados + en proceso)";
+  summary.getCell(`A${r}`).value = "Ingreso esperado (planes de registros no rechazados)";
   summary.getCell(`B${r}`).value = {
-    formula: `SUMIF(Stands!C2:C${standsLastRow},"Apartado",Stands!B2:B${standsLastRow})+SUMIF(Stands!C2:C${standsLastRow},"En proceso",Stands!B2:B${standsLastRow})`,
+    formula: `SUMIFS(${planPriceRange},${statusRange},"<>Rechazado")`,
   };
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
@@ -189,6 +190,28 @@ export async function GET() {
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   summary.getCell(`B${r}`).font = { bold: true };
   r += 2;
+
+  summary.getCell(`A${r}`).value = "Desglose por plan (registros no rechazados)";
+  summary.getCell(`A${r}`).font = { bold: true };
+  r++;
+
+  const planLabels = Array.from(
+    new Map(
+      PRICING_PLANS.map((p) => [
+        `${p.categoryLabel} · ${p.days} ${p.days === 1 ? "día" : "días"}`,
+        true,
+      ])
+    ).keys()
+  );
+  planLabels.forEach((label) => {
+    summary.getCell(`A${r}`).value = label;
+    summary.getCell(`B${r}`).value = {
+      formula: `SUMIFS(${planPriceRange},${planRange},"${label}",${statusRange},"<>Rechazado")`,
+    };
+    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+    r++;
+  });
+  r++;
 
   summary.getCell(`A${r}`).value = "Proyección";
   summary.getCell(`A${r}`).font = { bold: true };

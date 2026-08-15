@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PRICING_PLANS } from "@/lib/eventConfig";
 
 export const runtime = "nodejs";
 
 const schema = z.object({
   standId: z.string().min(1),
+  planId: z.string().min(1),
   businessName: z.string().trim().min(1).max(200),
   contactName: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(6).max(30),
@@ -52,6 +54,7 @@ export async function POST(request: Request) {
 
   const parsed = schema.safeParse({
     standId: formData.get("standId"),
+    planId: formData.get("planId"),
     businessName: formData.get("businessName"),
     contactName: formData.get("contactName"),
     phone: formData.get("phone"),
@@ -76,6 +79,12 @@ export async function POST(request: Request) {
   }
 
   const payload = parsed.data;
+
+  const plan = PRICING_PLANS.find((p) => p.id === payload.planId);
+  if (!plan) {
+    return NextResponse.json({ message: "Plan de stand inválido." }, { status: 400 });
+  }
+
   const supabase = createAdminClient();
 
   let proofPath: string | null;
@@ -126,6 +135,10 @@ export async function POST(request: Request) {
     p_amount_reported: payload.amountReported,
     p_payment_proof_path: proofPath,
     p_payment_proof_path_2: proofPath2,
+    p_plan_id: plan.id,
+    p_plan_label: `${plan.categoryLabel} · ${plan.days} ${plan.days === 1 ? "día" : "días"}`,
+    p_plan_price: plan.price,
+    p_is_shared: plan.shared,
   });
 
   if (error) {

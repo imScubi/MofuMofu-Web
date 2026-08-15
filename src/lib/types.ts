@@ -29,26 +29,12 @@ export interface RegistrationRow {
   amount_reported: number;
   payment_proof_path: string;
   payment_proof_path_2: string | null;
+  plan_id: string;
+  plan_label: string;
+  plan_price: number;
+  is_shared: boolean;
   status: RegistrationStatus;
   admin_notes: string | null;
   created_at: string;
   updated_at: string;
-}
-
-export interface ReserveStandPayload {
-  standId: string;
-  businessName: string;
-  contactName: string;
-  phone: string;
-  email?: string;
-  instagram?: string;
-  facebook?: string;
-  tiktok?: string;
-  otherSocial?: string;
-  businessCategory: string;
-  needsElectricity: boolean;
-  electricityDetails?: string;
-  needsGas: boolean;
-  gasDetails?: string;
-  amountReported: number;
 }

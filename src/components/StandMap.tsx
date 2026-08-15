@@ -15,7 +15,7 @@ import type { StandRow, StandStatus } from "@/lib/types";
 interface StandMapProps {
   initialStands: StandRow[];
   selectedId: string | null;
-  onSelect: (standId: string, price: number) => void;
+  onSelect: (standId: string) => void;
 }
 
 const STATUS_STYLES: Record<
@@ -55,7 +55,6 @@ export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps)
   const [stands, setStands] = useState<Record<string, StandRow>>(() =>
     Object.fromEntries(initialStands.map((s) => [s.id, s]))
   );
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
 
   useEffect(() => {
     const supabase = createClient();
@@ -75,8 +74,6 @@ export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps)
       supabase.removeChannel(channel);
     };
   }, []);
-
-  const hoveredStand = hoveredId ? stands[hoveredId] : null;
 
   return (
     <div>
@@ -128,9 +125,7 @@ export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps)
                 type="button"
                 aria-label={`Stand ${stand.id}${isSelectable ? ", disponible" : ""}`}
                 disabled={!isSelectable}
-                onClick={() => onSelect(stand.id, data?.price ?? 0)}
-                onMouseEnter={() => setHoveredId(stand.id)}
-                onMouseLeave={() => setHoveredId((id) => (id === stand.id ? null : id))}
+                onClick={() => onSelect(stand.id)}
                 className={clsx(
                   "absolute -translate-x-1/2 -translate-y-1/2 rounded-md ring-2 transition-all duration-150",
                   isSelectable ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed",
@@ -165,12 +160,6 @@ export function StandMap({ initialStands, selectedId, onSelect }: StandMapProps)
           <span className="inline-block h-3.5 w-3.5 rounded-full bg-lavender-500/25 ring-2 ring-lavender-500" />
           Módulo de informes
         </div>
-      </div>
-
-      <div className="mt-2 h-5 text-center text-sm font-semibold text-pink-600">
-        {hoveredStand && hoveredStand.status === "available"
-          ? `Stand ${hoveredId} · $${hoveredStand.price.toLocaleString("es-MX")} MXN`
-          : ""}
       </div>
     </div>
   );

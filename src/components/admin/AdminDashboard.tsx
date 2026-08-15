@@ -86,20 +86,15 @@ export function AdminDashboard({
     return () => clearInterval(interval);
   }, [router]);
 
-  const standById = useMemo(
-    () => Object.fromEntries(stands.map((s) => [s.id, s])),
-    [stands]
-  );
-
   const stats = useMemo(() => {
     const reservable = stands.filter((s) => s.reservable);
     const sold = reservable.filter((s) => s.status === "sold").length;
     const pending = reservable.filter((s) => s.status === "pending").length;
     const available = reservable.filter((s) => s.status === "available").length;
 
-    const expected = reservable
-      .filter((s) => s.status === "sold" || s.status === "pending")
-      .reduce((sum, s) => sum + Number(s.price), 0);
+    const expected = registrations
+      .filter((r) => r.status !== "rejected")
+      .reduce((sum, r) => sum + Number(r.plan_price), 0);
 
     const collected = registrations
       .filter((r) => r.status !== "rejected")
@@ -222,6 +217,7 @@ export function AdminDashboard({
               <Th>Stand</Th>
               <Th>Negocio</Th>
               <Th>Contacto</Th>
+              <Th>Plan</Th>
               <Th>Categoría</Th>
               <Th>Monto</Th>
               <Th>Estatus</Th>
@@ -238,11 +234,19 @@ export function AdminDashboard({
                   <div>{r.contact_name}</div>
                   <div className="text-xs text-ink-soft">{r.phone}</div>
                 </Td>
+                <Td>
+                  {r.plan_label}
+                  {r.is_shared && (
+                    <span className="ml-1.5 rounded-full bg-lavender-100 px-2 py-0.5 text-xs font-semibold text-lavender-500">
+                      Compartido
+                    </span>
+                  )}
+                </Td>
                 <Td>{r.business_category}</Td>
                 <Td>
                   {formatMoney(Number(r.amount_reported))}
                   <div className="text-xs text-ink-soft">
-                    de {formatMoney(Number(standById[r.stand_id]?.price ?? 0))}
+                    de {formatMoney(Number(r.plan_price))}
                   </div>
                 </Td>
                 <Td>
@@ -286,7 +290,7 @@ export function AdminDashboard({
             ))}
             {filtered.length === 0 && (
               <tr>
-                <Td colSpan={8} className="py-8 text-center text-ink-soft">
+                <Td colSpan={9} className="py-8 text-center text-ink-soft">
                   No hay registros en esta categoría.
                 </Td>
               </tr>

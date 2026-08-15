@@ -1,10 +1,18 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import clsx from "clsx";
 import { StandMap } from "@/components/StandMap";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { BUSINESS_CATEGORIES, EVENT_CONFIG } from "@/lib/eventConfig";
+import {
+  BUSINESS_CATEGORIES,
+  EVENT_CONFIG,
+  PRICING_PLANS,
+  SHARED_PLAN_NOTICE,
+  STAND_INCLUDES,
+  type PricingPlan,
+} from "@/lib/eventConfig";
 import type { StandRow } from "@/lib/types";
 
 interface RegistrationFormProps {
@@ -19,9 +27,8 @@ const labelClass = "text-sm font-semibold text-ink";
 
 export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [step, setStep] = useState<Step>("map");
-  const [selectedStand, setSelectedStand] = useState<{ id: string; price: number } | null>(
-    null
-  );
+  const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<string | null>(null);
@@ -30,19 +37,16 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [needsElectricity, setNeedsElectricity] = useState(false);
   const [needsGas, setNeedsGas] = useState(false);
 
-  function handleSelectStand(id: string, price: number) {
-    setSelectedStand({ id, price: price || EVENT_CONFIG.defaultStandPrice });
-  }
-
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    if (!selectedStand) return;
+    if (!selectedStandId || !selectedPlan) return;
     setSubmitting(true);
     setError(null);
 
     const form = e.currentTarget;
     const formData = new FormData(form);
-    formData.set("standId", selectedStand.id);
+    formData.set("standId", selectedStandId);
+    formData.set("planId", selectedPlan.id);
     formData.set("businessCategory", businessCategory);
     formData.set("needsElectricity", String(needsElectricity));
     formData.set("needsGas", String(needsGas));
@@ -56,7 +60,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
           setError(
             "Ese stand acaba de ser apartado por alguien más 😿. Elige otro en el mapa."
           );
-          setSelectedStand(null);
+          setSelectedStandId(null);
           setStep("map");
         } else {
           setError(data.message || "No pudimos completar tu registro. Intenta de nuevo.");
@@ -81,7 +85,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
           ¡Tu registro quedó apartado!
         </h2>
         <p className="mt-2 text-ink-soft">
-          Stand <span className="font-bold text-pink-600">#{selectedStand?.id}</span>{" "}
+          Stand <span className="font-bold text-pink-600">#{selectedStandId}</span>{" "}
           reservado. Estamos revisando tu comprobante de pago, te confirmaremos por
           correo o WhatsApp en cuanto quede aprobado.
         </p>
@@ -110,19 +114,51 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
           <div className="mt-4">
             <StandMap
               initialStands={initialStands}
-              selectedId={selectedStand?.id ?? null}
-              onSelect={handleSelectStand}
+              selectedId={selectedStandId}
+              onSelect={(id) => setSelectedStandId(id)}
             />
           </div>
+
+          {selectedStandId && (
+            <div className="mt-6">
+              <h3 className="font-heading text-lg font-bold text-ink">
+                Elige tu plan para el stand #{selectedStandId}
+              </h3>
+              <p className="mt-1 text-sm text-ink-soft">
+                Incluye: {STAND_INCLUDES.join(" · ")}.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {PRICING_PLANS.map((plan) => (
+                  <PlanCard
+                    key={plan.id}
+                    plan={plan}
+                    selected={selectedPlan?.id === plan.id}
+                    onSelect={() => setSelectedPlan(plan)}
+                  />
+                ))}
+              </div>
+              {selectedPlan?.shared && (
+                <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-2.5 text-sm text-ink-soft">
+                  🤝 {SHARED_PLAN_NOTICE}
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="mt-6 flex items-center justify-between">
             <span className="text-sm text-ink-soft">
-              {selectedStand
-                ? `Stand seleccionado: #${selectedStand.id} · $${selectedStand.price.toLocaleString(
-                    "es-MX"
-                  )} ${EVENT_CONFIG.currency}`
-                : "Aún no has elegido un stand"}
+              {selectedStandId && selectedPlan
+                ? `Stand #${selectedStandId} · ${selectedPlan.categoryLabel} (${selectedPlan.days} ${
+                    selectedPlan.days === 1 ? "día" : "días"
+                  }) · $${selectedPlan.price.toLocaleString("es-MX")} ${EVENT_CONFIG.currency}`
+                : selectedStandId
+                  ? "Elige un plan para continuar"
+                  : "Aún no has elegido un stand"}
             </span>
-            <Button disabled={!selectedStand} onClick={() => setStep("info")}>
+            <Button
+              disabled={!selectedStandId || !selectedPlan}
+              onClick={() => setStep("info")}
+            >
               Continuar
             </Button>
           </div>
@@ -225,8 +261,9 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
 
               <div className="rounded-2xl bg-lavender-100/60 p-4 text-sm">
                 <p className="font-semibold text-ink">
-                  Stand #{selectedStand?.id} · $
-                  {selectedStand?.price.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
+                  Stand #{selectedStandId} · {selectedPlan?.categoryLabel} (
+                  {selectedPlan?.days} {selectedPlan?.days === 1 ? "día" : "días"}) · $
+                  {selectedPlan?.price.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
                 </p>
                 <div className="mt-2 space-y-0.5 text-ink-soft">
                   <p>Banco: {EVENT_CONFIG.bankInfo.bank}</p>
@@ -240,7 +277,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 label={`Monto transferido (${EVENT_CONFIG.currency})`}
                 name="amountReported"
                 type="number"
-                defaultValue={selectedStand?.price}
+                defaultValue={selectedPlan?.price}
                 min={0}
                 step="0.01"
                 required
@@ -287,6 +324,42 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
         </form>
       )}
     </div>
+  );
+}
+
+function PlanCard({
+  plan,
+  selected,
+  onSelect,
+}: {
+  plan: PricingPlan;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={clsx(
+        "rounded-2xl border-2 p-4 text-left transition-colors",
+        selected
+          ? "border-pink-500 bg-pink-50"
+          : "border-pink-100 bg-white hover:border-pink-300"
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-heading font-semibold text-ink">{plan.categoryLabel}</span>
+        {plan.shared && (
+          <span className="rounded-full bg-lavender-100 px-2 py-0.5 text-xs font-semibold text-lavender-500">
+            Compartido
+          </span>
+        )}
+      </div>
+      <p className="text-sm text-ink-soft">{plan.days === 1 ? "1 día" : "2 días"}</p>
+      <p className="font-heading mt-1 text-xl font-bold text-pink-600">
+        ${plan.price.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
+      </p>
+    </button>
   );
 }
 
