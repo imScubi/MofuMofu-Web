@@ -3,21 +3,21 @@ export const EVENT_CONFIG = {
   name: "MofuMofu Market",
   tagline: "Registro de expositores",
   // Fecha del evento, usada para la proyección de cobros en el Excel.
-  eventDate: "2026-11-14",
+  eventDate: "2026-10-24 2026-10-25",
   // Fecha límite para liquidar el pago del stand.
-  paymentDeadline: "2026-10-31",
+  paymentDeadline: "2026-10-9",
   currency: "MXN",
   // Datos bancarios a mostrar al expositor para hacer su transferencia.
   // TODO: reemplaza esto con los datos reales de tu cuenta.
   bankInfo: {
-    bank: "Nombre del banco",
-    accountHolder: "Nombre del titular",
-    clabe: "0000 0000 0000 0000 00",
+    bank: "STP Plata",
+    accountHolder: "Roberto Renne Coronado Luna",
+    clabe: "646192405603826008",
     accountNumber: "0000000000",
     concept: "Nombre de tu negocio + número de stand",
   },
-  contactEmail: "hola@mofumofumarket.com",
-  contactWhatsapp: "",
+  contactEmail: "mofumofuu.market@gmail.com",
+  contactWhatsapp: "8127562745",
 } as const;
 
 // Planes de precio para el stand. El expositor elige uno después de
