@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useState } from "react";
 import clsx from "clsx";
 import { StandMap } from "@/components/StandMap";
 import { Button } from "@/components/ui/Button";
@@ -25,6 +25,13 @@ const inputClass =
   "w-full rounded-2xl border border-pink-100 bg-white px-4 py-2.5 text-ink placeholder:text-ink-soft/60 focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-100";
 const labelClass = "text-sm font-semibold text-ink";
 
+// Nota: el formulario NO usa el atributo HTML `required`. Los 3 pasos
+// viven en el mismo <form> (los pasos anteriores solo se ocultan con
+// CSS para no perder sus datos), y un campo "requerido" oculto puede
+// hacer que el navegador bloquee el envío sin mostrar ningún error
+// visible. Toda la validación se hace a mano en JS, con mensajes
+// explícitos, para evitar ese silencio.
+
 export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [step, setStep] = useState<Step>("map");
   const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
@@ -33,23 +40,78 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<string | null>(null);
 
+  const [businessName, setBusinessName] = useState("");
+  const [contactName, setContactName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [facebook, setFacebook] = useState("");
+  const [tiktok, setTiktok] = useState("");
   const [businessCategory, setBusinessCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
   const [needsElectricity, setNeedsElectricity] = useState(false);
+  const [electricityDetails, setElectricityDetails] = useState("");
   const [needsGas, setNeedsGas] = useState(false);
+  const [gasDetails, setGasDetails] = useState("");
+  const [infoError, setInfoError] = useState<string | null>(null);
+
+  const [amountReported, setAmountReported] = useState("");
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentProof2, setPaymentProof2] = useState<File | null>(null);
+
+  function handleContinueToInfo() {
+    setInfoError(null);
+    setStep("info");
+  }
+
+  function handleContinueToPayment() {
+    if (!businessName.trim() || !contactName.trim() || !phone.trim()) {
+      setInfoError("Completa nombre del negocio, contacto y teléfono para continuar.");
+      return;
+    }
+    if (needsElectricity && !electricityDetails.trim()) {
+      setInfoError("Describe qué necesitas conectar de electricidad.");
+      return;
+    }
+    setInfoError(null);
+    setAmountReported((prev) => prev || String(selectedPlan?.price ?? ""));
+    setStep("payment");
+  }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!selectedStandId || !selectedPlan) return;
+
+    const amount = Number(amountReported);
+    if (!amountReported || Number.isNaN(amount) || amount < 0) {
+      setError("Ingresa el monto que transferiste.");
+      return;
+    }
+    if (!paymentProof) {
+      setError("Debes adjuntar la captura de tu transferencia.");
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
-    const form = e.currentTarget;
-    const formData = new FormData(form);
+    const formData = new FormData();
     formData.set("standId", selectedStandId);
     formData.set("planId", selectedPlan.id);
+    formData.set("businessName", businessName.trim());
+    formData.set("contactName", contactName.trim());
+    formData.set("phone", phone.trim());
+    formData.set("email", email.trim());
+    formData.set("instagram", instagram.trim());
+    formData.set("facebook", facebook.trim());
+    formData.set("tiktok", tiktok.trim());
     formData.set("businessCategory", businessCategory);
     formData.set("needsElectricity", String(needsElectricity));
+    formData.set("electricityDetails", electricityDetails.trim());
     formData.set("needsGas", String(needsGas));
+    formData.set("gasDetails", gasDetails.trim());
+    formData.set("amountReported", String(amount));
+    formData.set("paymentProof", paymentProof);
+    if (paymentProof2) formData.set("paymentProof2", paymentProof2);
 
     try {
       const res = await fetch("/api/reserve", { method: "POST", body: formData });
@@ -77,6 +139,10 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
     }
   }
 
+  function handleFileChange(setter: (file: File | null) => void) {
+    return (e: ChangeEvent<HTMLInputElement>) => setter(e.target.files?.[0] ?? null);
+  }
+
   if (step === "done") {
     return (
       <Card className="mx-auto max-w-lg p-8 text-center">
@@ -90,10 +156,21 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
           correo o WhatsApp en cuanto quede aprobado.
         </p>
         {folio && (
-          <p className="mt-4 rounded-2xl bg-pink-50 px-4 py-2 text-sm text-ink-soft">
-            Folio de tu registro:{" "}
-            <span className="font-mono font-semibold text-ink">{folio}</span>
-          </p>
+          <>
+            <p className="mt-4 rounded-2xl bg-pink-50 px-4 py-2 text-sm text-ink-soft">
+              Folio de tu registro:{" "}
+              <span className="font-mono font-semibold text-ink">{folio}</span>
+            </p>
+            <p className="mt-3 text-xs text-ink-soft">
+              Guarda este folio. Si vas a completar tu pago en otro momento (por
+              ejemplo, primero un anticipo y después el resto), lo vas a necesitar
+              en{" "}
+              <a href="/registro/completar" className="font-semibold text-pink-600 underline">
+                completar mi pago
+              </a>{" "}
+              para que no se duplique tu registro.
+            </p>
+          </>
         )}
       </Card>
     );
@@ -155,10 +232,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                   ? "Elige un plan para continuar"
                   : "Aún no has elegido un stand"}
             </span>
-            <Button
-              disabled={!selectedStandId || !selectedPlan}
-              onClick={() => setStep("info")}
-            >
+            <Button disabled={!selectedStandId || !selectedPlan} onClick={handleContinueToInfo}>
               Continuar
             </Button>
           </div>
@@ -173,17 +247,53 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 2. Cuéntanos de tu negocio
               </h2>
 
-              <Field label="Nombre del negocio" name="businessName" required />
+              <Field
+                label="Nombre del negocio"
+                required
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+              />
               <div className="grid gap-5 sm:grid-cols-2">
-                <Field label="Nombre de contacto" name="contactName" required />
-                <Field label="Teléfono / WhatsApp" name="phone" type="tel" required />
+                <Field
+                  label="Nombre de contacto"
+                  required
+                  value={contactName}
+                  onChange={(e) => setContactName(e.target.value)}
+                />
+                <Field
+                  label="Teléfono / WhatsApp"
+                  type="tel"
+                  required
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </div>
-              <Field label="Correo electrónico" name="email" type="email" />
+              <Field
+                label="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
 
               <div className="grid gap-5 sm:grid-cols-3">
-                <Field label="Instagram" name="instagram" placeholder="@usuario" />
-                <Field label="Facebook" name="facebook" placeholder="usuario o link" />
-                <Field label="TikTok" name="tiktok" placeholder="@usuario" />
+                <Field
+                  label="Instagram"
+                  placeholder="@usuario"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                />
+                <Field
+                  label="Facebook"
+                  placeholder="usuario o link"
+                  value={facebook}
+                  onChange={(e) => setFacebook(e.target.value)}
+                />
+                <Field
+                  label="TikTok"
+                  placeholder="@usuario"
+                  value={tiktok}
+                  onChange={(e) => setTiktok(e.target.value)}
+                />
               </div>
 
               <div>
@@ -213,8 +323,8 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 </label>
                 {needsElectricity && (
                   <textarea
-                    name="electricityDetails"
-                    required
+                    value={electricityDetails}
+                    onChange={(e) => setElectricityDetails(e.target.value)}
                     placeholder="Describe con detalle qué vas a conectar: cuántos focos/luces, si llevas laptop, plancha, cafetera, freidora, refrigerador, etc., y cuánto tiempo estará encendido cada aparato."
                     className={`${inputClass} mt-2`}
                     rows={3}
@@ -234,7 +344,8 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 </label>
                 {needsGas && (
                   <textarea
-                    name="gasDetails"
+                    value={gasDetails}
+                    onChange={(e) => setGasDetails(e.target.value)}
                     placeholder="Cuéntanos qué tipo de equipo usarás (parrilla, tanque, etc.)"
                     className={`${inputClass} mt-2`}
                     rows={2}
@@ -242,11 +353,17 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 )}
               </div>
 
+              {infoError && (
+                <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+                  {infoError}
+                </p>
+              )}
+
               <div className="flex items-center justify-between pt-2">
                 <Button type="button" variant="ghost" onClick={() => setStep("map")}>
                   ← Atrás
                 </Button>
-                <Button type="button" onClick={() => setStep("payment")}>
+                <Button type="button" onClick={handleContinueToPayment}>
                   Continuar
                 </Button>
               </div>
@@ -275,21 +392,22 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
 
               <Field
                 label={`Monto transferido (${EVENT_CONFIG.currency})`}
-                name="amountReported"
                 type="number"
-                defaultValue={selectedPlan?.price}
                 min={0}
                 step="0.01"
                 required
+                value={amountReported}
+                onChange={(e) => setAmountReported(e.target.value)}
               />
 
               <div>
-                <label className={labelClass}>Captura de tu transferencia</label>
+                <label className={labelClass}>
+                  Captura de tu transferencia<span className="text-pink-500"> *</span>
+                </label>
                 <input
                   type="file"
-                  name="paymentProof"
                   accept="image/*,.pdf"
-                  required
+                  onChange={handleFileChange(setPaymentProof)}
                   className={`${inputClass} mt-1.5 file:mr-3 file:rounded-full file:border-0 file:bg-pink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-pink-600`}
                 />
               </div>
@@ -299,8 +417,8 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 </label>
                 <input
                   type="file"
-                  name="paymentProof2"
                   accept="image/*,.pdf"
+                  onChange={handleFileChange(setPaymentProof2)}
                   className={`${inputClass} mt-1.5 file:mr-3 file:rounded-full file:border-0 file:bg-pink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-pink-600`}
                 />
               </div>
@@ -365,22 +483,20 @@ function PlanCard({
 
 function Field({
   label,
-  name,
   required,
   ...rest
 }: {
   label: string;
-  name: string;
   required?: boolean;
 } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
-    <div>
-      <label className={labelClass}>
+    <label className="block">
+      <span className={labelClass}>
         {label}
         {required && <span className="text-pink-500"> *</span>}
-      </label>
-      <input name={name} required={required} className={`${inputClass} mt-1.5`} {...rest} />
-    </div>
+      </span>
+      <input className={`${inputClass} mt-1.5`} {...rest} />
+    </label>
   );
 }
 

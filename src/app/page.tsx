@@ -57,6 +57,12 @@ export default function Home() {
             Fecha límite de pago:{" "}
             <span className="font-semibold text-ink">{deadlineLabel}</span>
           </p>
+          <p className="mt-2 text-sm text-ink-soft">
+            ¿Ya reservaste y vas a completar tu pago?{" "}
+            <Link href="/registro/completar" className="font-semibold text-pink-600 underline">
+              Completa tu pago aquí
+            </Link>
+          </p>
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/eventConfig";
+import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
 
 export const runtime = "nodejs";
 
@@ -23,31 +24,6 @@ const schema = z.object({
   gasDetails: z.string().trim().max(500).optional().or(z.literal("")),
   amountReported: z.coerce.number().min(0),
 });
-
-const MAX_FILE_BYTES = 8 * 1024 * 1024;
-
-async function uploadProof(
-  supabase: ReturnType<typeof createAdminClient>,
-  standId: string,
-  file: File | null,
-  label: string
-): Promise<string | null> {
-  if (!file || file.size === 0) return null;
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error("FILE_TOO_LARGE");
-  }
-
-  const ext = file.name.split(".").pop()?.slice(0, 10) || "bin";
-  const path = `${standId}/${Date.now()}-${label}.${ext}`;
-  const buffer = Buffer.from(await file.arrayBuffer());
-
-  const { error } = await supabase.storage
-    .from("payment-proofs")
-    .upload(path, buffer, { contentType: file.type || undefined });
-
-  if (error) throw error;
-  return path;
-}
 
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -90,13 +66,13 @@ export async function POST(request: Request) {
   let proofPath: string | null;
   let proofPath2: string | null;
   try {
-    proofPath = await uploadProof(
+    proofPath = await uploadPaymentProof(
       supabase,
       payload.standId,
       formData.get("paymentProof") as File | null,
       "comprobante"
     );
-    proofPath2 = await uploadProof(
+    proofPath2 = await uploadPaymentProof(
       supabase,
       payload.standId,
       formData.get("paymentProof2") as File | null,
@@ -104,7 +80,7 @@ export async function POST(request: Request) {
     );
   } catch (err) {
     const message =
-      err instanceof Error && err.message === "FILE_TOO_LARGE"
+      err instanceof ProofUploadError
         ? "El archivo del comprobante es demasiado grande (máx. 8MB)."
         : "No pudimos subir tu comprobante de pago. Intenta de nuevo.";
     return NextResponse.json({ message }, { status: 400 });

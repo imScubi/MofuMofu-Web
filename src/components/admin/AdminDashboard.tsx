@@ -257,12 +257,22 @@ export function AdminDashboard({
                   </span>
                 </Td>
                 <Td>
-                  <button
-                    onClick={() => viewProof(r.payment_proof_path)}
-                    className="text-pink-600 underline"
-                  >
-                    Ver
-                  </button>
+                  <div className="flex flex-col gap-1">
+                    <button
+                      onClick={() => viewProof(r.payment_proof_path)}
+                      className="text-pink-600 underline"
+                    >
+                      Ver comprobante
+                    </button>
+                    {r.payment_proof_path_2 && (
+                      <button
+                        onClick={() => viewProof(r.payment_proof_path_2!)}
+                        className="text-pink-600 underline"
+                      >
+                        Ver 2do comprobante
+                      </button>
+                    )}
+                  </div>
                 </Td>
                 <Td>
                   <div className="flex gap-2">
