@@ -1,30 +1,38 @@
 @import "tailwindcss";
 
+/* Paleta del rediseño visual (handoff de Claude Design, v1).
+   Mismos nombres de token que antes: cambian los valores, no la API.
+   Todos los pares texto/fondo cumplen AA 4.5:1 salvo pink-500 sobre
+   blanco, que sólo se usa como relleno de botón con texto ≥16px bold. */
 :root {
-  --background: #fff9f5;
-  --foreground: #4a3b4a;
+  --background: #FFF7F2;
+  --foreground: #3A2B33;
 
-  --color-cream: #fff9f5;
-  --color-pink-50: #fff0f6;
-  --color-pink-100: #ffdcec;
-  --color-pink-300: #ffb3d6;
-  --color-pink-500: #ff7eb6;
-  --color-pink-600: #f45ea1;
+  --color-cream: #FFF7F2;
+  --color-pink-50: #FFF1F5;
+  --color-pink-100: #FFDCE7;
+  --color-pink-300: #FFA9C4;
+  --color-pink-500: #E8628E;
+  --color-pink-600: #C93A6B;
+  --color-pink-700: #A32450; /* texto rosa: 7.18:1 sobre blanco */
 
-  --color-lavender-100: #ede6ff;
-  --color-lavender-300: #cbb8ff;
-  --color-lavender-500: #a98bff;
+  --color-lavender-100: #EFE9FF;
+  --color-lavender-300: #C4B2F5;
+  --color-lavender-500: #6B4BC4;
 
-  --color-mint-100: #dcf7ea;
-  --color-mint-300: #a6e8c6;
-  --color-mint-500: #5bc98c;
+  --color-mint-100: #DFF3E4;
+  --color-mint-300: #9AD9AF;
+  --color-mint-500: #26724A;
 
-  --color-amber-100: #fff3d6;
-  --color-amber-300: #ffd873;
-  --color-amber-500: #f5b400;
+  --color-amber-100: #FFF1D6;
+  --color-amber-300: #F5CE7A;
+  --color-amber-500: #8A5806;
 
-  --color-ink: #4a3b4a;
-  --color-ink-soft: #8a7a8a;
+  --color-ink: #3A2B33;
+  --color-ink-soft: #6F5A64;
+  --color-gray-500: #6B6169;
+  --color-danger-50: #FFF0EF;
+  --color-danger-600: #C2352C;
 }
 
 @theme inline {
@@ -36,6 +44,7 @@
   --color-pink-300: var(--color-pink-300);
   --color-pink-500: var(--color-pink-500);
   --color-pink-600: var(--color-pink-600);
+  --color-pink-700: var(--color-pink-700);
   --color-lavender-100: var(--color-lavender-100);
   --color-lavender-300: var(--color-lavender-300);
   --color-lavender-500: var(--color-lavender-500);
@@ -47,18 +56,27 @@
   --color-amber-500: var(--color-amber-500);
   --color-ink: var(--color-ink);
   --color-ink-soft: var(--color-ink-soft);
-  --font-heading: var(--font-baloo);
+  --color-gray-500: var(--color-gray-500);
+  --color-danger-50: var(--color-danger-50);
+  --color-danger-600: var(--color-danger-600);
+  --font-heading: var(--font-mplus);
   --font-body: var(--font-nunito);
+  --font-mono: var(--font-dm-mono);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  text-wrap: pretty;
 }
 
 h1, h2, h3, h4, .font-heading {
   font-family: var(--font-heading), var(--font-body), ui-sans-serif, sans-serif;
+}
+
+::selection {
+  background: var(--color-pink-100);
 }
 
 /* Scrollbar suave para el mapa en pantallas pequeñas */
@@ -68,4 +86,46 @@ h1, h2, h3, h4, .font-heading {
 .kawaii-scroll::-webkit-scrollbar-thumb {
   background: var(--color-pink-300);
   border-radius: 999px;
+}
+
+/* Confeti de puntos: fondo del hero y de la confirmación.
+   Sustituye a los blobs borrosos. Los puntos van a media opacidad
+   porque hay texto encima y a full contraste lo vuelven ilegible. */
+.mofu-confetti {
+  background-image:
+    radial-gradient(
+      color-mix(in srgb, var(--color-pink-300) 50%, transparent) 1.6px,
+      transparent 1.7px
+    ),
+    radial-gradient(
+      color-mix(in srgb, var(--color-lavender-300) 50%, transparent) 1.6px,
+      transparent 1.7px
+    );
+  background-size: 26px 26px, 26px 26px;
+  background-position: 0 0, 13px 13px;
+}
+
+/* Muescas laterales de boleto, para el bloque del folio. */
+.mofu-ticket {
+  -webkit-mask-image:
+    radial-gradient(circle 10px at 0 62%, transparent 98%, #000 100%),
+    radial-gradient(circle 10px at 100% 62%, transparent 98%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask-image:
+    radial-gradient(circle 10px at 0 62%, transparent 98%, #000 100%),
+    radial-gradient(circle 10px at 100% 62%, transparent 98%, #000 100%);
+  mask-composite: intersect;
+}
+
+.mofu-float {
+  animation: mofu-float 5s ease-in-out infinite;
+}
+
+@keyframes mofu-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mofu-float { animation: none; }
 }

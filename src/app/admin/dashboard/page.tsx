@@ -35,7 +35,7 @@ export default async function AdminDashboardPage({
           </p>
           <a
             href="/admin/dashboard/eventos"
-            className="mt-4 inline-block font-semibold text-pink-600 underline"
+            className="mt-4 inline-block font-bold text-pink-700 underline underline-offset-2"
           >
             Crear una edición
           </a>

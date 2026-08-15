@@ -5,12 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { EventRow } from "@/lib/types";
 
-const inputClass =
-  "w-full rounded-2xl border border-pink-100 bg-white px-4 py-2.5 text-ink focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-100";
-const labelClass = "text-sm font-semibold text-ink";
 
 export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
   const router = useRouter();
@@ -104,7 +102,7 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
           <div>
             <label className={labelClass}>Nombre de la edición</label>
             <input
-              className={`${inputClass} mt-1.5`}
+              className={inputClass}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Ej. Edición Diciembre 2026"
@@ -116,7 +114,7 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
               <label className={labelClass}>Primer día del evento</label>
               <input
                 type="date"
-                className={`${inputClass} mt-1.5`}
+                className={inputClass}
                 value={dateStart}
                 onChange={(e) => {
                   setDateStart(e.target.value);
@@ -128,7 +126,7 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
               <label className={labelClass}>Último día del evento</label>
               <input
                 type="date"
-                className={`${inputClass} mt-1.5`}
+                className={inputClass}
                 value={dateEnd}
                 min={dateStart || undefined}
                 onChange={(e) => setDateEnd(e.target.value)}
@@ -138,7 +136,7 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
               <label className={labelClass}>Fecha límite de pago</label>
               <input
                 type="date"
-                className={`${inputClass} mt-1.5`}
+                className={inputClass}
                 value={paymentDeadline}
                 onChange={(e) => setPaymentDeadline(e.target.value)}
               />
@@ -156,11 +154,11 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
           </label>
 
           {error && (
-            <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
+            <p className={formErrorBoxClass}>{error}</p>
           )}
 
           <Button type="submit" disabled={creating}>
-            {creating ? "Creando..." : "Crear edición 🎀"}
+            {creating ? "Creando..." : "Crear edición"}
           </Button>
         </form>
       </Card>

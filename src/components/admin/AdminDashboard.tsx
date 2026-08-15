@@ -29,9 +29,9 @@ const STATUS_LABEL: Record<RegistrationStatus, string> = {
 };
 
 const STATUS_BADGE: Record<RegistrationStatus, string> = {
-  pending_review: "bg-amber-100 text-amber-700",
+  pending_review: "bg-amber-100 text-amber-500",
   approved: "bg-mint-100 text-mint-500",
-  rejected: "bg-red-100 text-red-600",
+  rejected: "bg-danger-50 text-danger-600",
 };
 
 const FILTERS: { key: "all" | RegistrationStatus; label: string }[] = [
@@ -196,7 +196,7 @@ export function AdminDashboard({
   }
 
   return (
-    <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-[1200px]">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold text-ink">
@@ -212,7 +212,7 @@ export function AdminDashboard({
             <select
               value={selectedEvent.id}
               onChange={(e) => router.push(`/admin/dashboard?event=${e.target.value}`)}
-              className="rounded-2xl border border-pink-100 bg-white px-3 py-2 text-sm text-ink focus:border-pink-300 focus:outline-none"
+              className="min-h-[44px] rounded-full border-2 border-pink-100 bg-white px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-pink-300 focus:border-pink-500 focus:outline-none focus:ring-4 focus:ring-pink-100"
             >
               {events.map((ev) => (
                 <option key={ev.id} value={ev.id}>
@@ -225,7 +225,7 @@ export function AdminDashboard({
             <Button variant="ghost">Ediciones 🗓️</Button>
           </Link>
           <a href={`/api/admin/export-excel?event=${selectedEvent.id}`}>
-            <Button variant="secondary">Descargar Excel 📊</Button>
+            <Button variant="secondary">Descargar Excel</Button>
           </a>
           <Button variant="ghost" onClick={logout}>
             Cerrar sesión
@@ -293,7 +293,7 @@ export function AdminDashboard({
           <tbody>
             {filtered.map((r) => (
               <tr key={r.id} className="border-b border-pink-50 last:border-0">
-                <Td className="font-semibold text-pink-600">#{r.folio_number}</Td>
+                <Td className="font-mono font-medium text-pink-700">#{r.folio_number}</Td>
                 <Td className="font-semibold">#{r.stand_id}</Td>
                 <Td>{r.business_name}</Td>
                 <Td>
@@ -326,14 +326,14 @@ export function AdminDashboard({
                   <div className="flex flex-col gap-1">
                     <button
                       onClick={() => viewProof(r.payment_proof_path)}
-                      className="text-pink-600 underline"
+                      className="text-pink-700 underline underline-offset-2"
                     >
                       Ver comprobante
                     </button>
                     {r.payment_proof_path_2 && (
                       <button
                         onClick={() => viewProof(r.payment_proof_path_2!)}
-                        className="text-pink-600 underline"
+                        className="text-pink-700 underline underline-offset-2"
                       >
                         Ver 2do comprobante
                       </button>
@@ -342,11 +342,11 @@ export function AdminDashboard({
                 </Td>
                 <Td>
                   {confirmDeleteId === r.id ? (
-                    <div className="min-w-[190px] rounded-xl bg-red-50 p-2">
-                      <p className="text-xs font-semibold text-red-700">
+                    <div className="min-w-[190px] rounded-xl bg-danger-50 p-2">
+                      <p className="text-xs font-bold text-danger-600">
                         ¿Borrar el folio #{r.folio_number} para siempre?
                       </p>
-                      <p className="mt-0.5 text-[11px] text-red-600">
+                      <p className="mt-0.5 text-[11px] text-danger-600">
                         Se libera el stand #{r.stand_id} y se borran sus comprobantes.
                       </p>
                       <div className="mt-2 flex gap-2">
@@ -393,7 +393,7 @@ export function AdminDashboard({
                         type="button"
                         disabled={busyId === r.id}
                         onClick={() => setConfirmDeleteId(r.id)}
-                        className="text-xs text-ink-soft underline hover:text-red-600 disabled:opacity-40"
+                        className="text-xs text-ink-soft underline hover:text-danger-600 disabled:opacity-40"
                       >
                         Borrar
                       </button>

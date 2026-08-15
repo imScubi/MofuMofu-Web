@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 import Image from "next/image";
 import clsx from "clsx";
 import { createClient } from "@/lib/supabase/client";
@@ -19,38 +19,98 @@ interface StandMapProps {
   onSelect: (standId: string) => void;
 }
 
-const STATUS_STYLES: Record<
-  StandStatus,
-  { ring: string; fill: string; label: string }
-> = {
+// Los cuatro estados se distinguen SIN color, para daltonismo:
+//   disponible    → relleno claro + el número
+//   en proceso    → franjas diagonales
+//   apartado      → relleno sólido + palomita
+//   no disponible → trama cruzada + tache
+// Además se separan en luminosidad: disponible es el único claro y
+// apartado el único sólido.
+const STRIPES_PENDING =
+  "repeating-linear-gradient(45deg, var(--color-amber-100) 0 4px, var(--color-amber-300) 4px 7px)";
+const STRIPES_BLOCKED =
+  "repeating-linear-gradient(135deg, rgba(107,97,105,.18) 0 3px, rgba(107,97,105,.42) 3px 6px)";
+
+interface StatusStyle {
+  className: string;
+  style?: CSSProperties;
+  label: string;
+}
+
+const STATUS_STYLES: Record<StandStatus, StatusStyle> = {
   available: {
-    ring: "ring-mint-500",
-    fill: "bg-mint-500/35",
+    className: "bg-mint-300/55 ring-2 ring-mint-500 text-mint-500",
     label: "Disponible",
   },
   pending: {
-    ring: "ring-amber-500",
-    fill: "bg-amber-500/40",
+    className: "ring-2 ring-amber-500 text-amber-500",
+    style: { backgroundImage: STRIPES_PENDING },
     label: "En proceso de pago",
   },
   sold: {
-    ring: "ring-pink-600",
-    fill: "bg-pink-500/55",
+    className: "bg-pink-600 ring-2 ring-pink-700 text-white",
     label: "Apartado",
   },
   blocked: {
-    ring: "ring-gray-400",
-    fill: "bg-gray-400/40",
+    className: "ring-2 ring-gray-500/65 text-gray-500",
+    style: { backgroundImage: STRIPES_BLOCKED },
     label: "No disponible",
   },
 };
 
-const LEGEND_ITEMS: { status: StandStatus; label: string }[] = [
-  { status: "available", label: "Disponible" },
-  { status: "pending", label: "En proceso" },
-  { status: "sold", label: "Apartado" },
-  { status: "blocked", label: "No disponible" },
-];
+function CheckGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-[62%] w-[62%]" aria-hidden="true">
+      <path
+        d="M3.2 8.6l3 3L12.8 5"
+        stroke="currentColor"
+        strokeWidth={2.6}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function CrossGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-[52%] w-[52%]" aria-hidden="true">
+      <path
+        d="M4 4l8 8M12 4l-8 8"
+        stroke="currentColor"
+        strokeWidth={2.2}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** El glifo que va dentro del cuadro del stand, por estado. */
+function standGlyph(status: StandStatus, id: string) {
+  if (status === "sold") return <CheckGlyph />;
+  if (status === "blocked") return <CrossGlyph />;
+  if (status === "pending") return <span className="leading-none">•</span>;
+  return <span className="leading-none">{id}</span>;
+}
+
+const LEGEND_ITEMS: StandStatus[] = ["available", "pending", "sold", "blocked"];
+
+/** Muestra del estado real, para que la leyenda enseñe lo mismo que el mapa. */
+function LegendSwatch({ status }: { status: StandStatus }) {
+  const style = STATUS_STYLES[status];
+  return (
+    <span
+      className={clsx(
+        "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] text-[11px] font-bold",
+        style.className
+      )}
+      style={style.style}
+      aria-hidden="true"
+    >
+      {status === "available" ? "12" : standGlyph(status, "")}
+    </span>
+  );
+}
 
 export function StandMap({
   eventId,
@@ -94,9 +154,11 @@ export function StandMap({
 
   return (
     <div>
-      <div className="kawaii-scroll overflow-x-auto rounded-3xl bg-white p-2">
+      <div className="kawaii-scroll overflow-x-auto rounded-3xl bg-mint-100/60 p-2.5">
+        {/* La proporción y el object-contain NO se tocan: las posiciones
+            de los stands son porcentajes sobre esta caja. */}
         <div
-          className="relative mx-auto min-w-[640px]"
+          className="relative mx-auto min-w-[860px]"
           style={{ aspectRatio: `${MAP_IMAGE_WIDTH} / ${MAP_IMAGE_HEIGHT}` }}
         >
           <Image
@@ -104,31 +166,30 @@ export function StandMap({
             alt="Plano del evento"
             fill
             sizes="(max-width: 768px) 100vw, 900px"
-            className="select-none rounded-2xl object-contain"
+            className="select-none rounded-2xl object-contain opacity-[0.62] grayscale contrast-[0.85] mix-blend-multiply"
             priority
           />
 
           {STAND_LAYOUT.map((stand) => {
             const data = stands[stand.id];
             const status: StandStatus = data?.status ?? "available";
-            const left = (stand.x / MAP_IMAGE_WIDTH) * 100;
-            const top = (stand.y / MAP_IMAGE_HEIGHT) * 100;
-            const widthPct = (stand.size / MAP_IMAGE_WIDTH) * 100;
-            const heightPct = (stand.size / MAP_IMAGE_HEIGHT) * 100;
+            const position: CSSProperties = {
+              left: `${(stand.x / MAP_IMAGE_WIDTH) * 100}%`,
+              top: `${(stand.y / MAP_IMAGE_HEIGHT) * 100}%`,
+              width: `${(stand.size / MAP_IMAGE_WIDTH) * 100}%`,
+              height: `${(stand.size / MAP_IMAGE_HEIGHT) * 100}%`,
+            };
 
             if (stand.shape === "info") {
               return (
                 <div
                   key={stand.id}
                   title="Módulo de informes"
-                  className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-lavender-500 bg-lavender-500/25"
-                  style={{
-                    left: `${left}%`,
-                    top: `${top}%`,
-                    width: `${widthPct}%`,
-                    height: `${heightPct}%`,
-                  }}
-                />
+                  className="absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-lavender-100 font-heading text-[11px] font-extrabold text-lavender-500 ring-2 ring-lavender-500"
+                  style={position}
+                >
+                  i
+                </div>
               );
             }
 
@@ -140,43 +201,59 @@ export function StandMap({
               <button
                 key={stand.id}
                 type="button"
-                aria-label={`Stand ${stand.id}${isSelectable ? ", disponible" : ""}`}
+                aria-label={`Stand ${stand.id}, ${style.label.toLowerCase()}`}
+                aria-pressed={isSelected}
                 disabled={!isSelectable}
                 onClick={() => onSelect(stand.id)}
                 className={clsx(
-                  "absolute -translate-x-1/2 -translate-y-1/2 rounded-md ring-2 transition-all duration-150",
-                  isSelectable ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed",
-                  isSelected ? "ring-[3px] ring-pink-600 bg-pink-500/70" : clsx(style.ring, style.fill)
+                  "absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[7px] text-[11px] font-bold transition-all duration-150",
+                  // Área táctil invisible: el cuadro no puede crecer sin
+                  // desalinearse del plano, pero el dedo sí necesita margen.
+                  "after:absolute after:inset-[-9px] after:content-['']",
+                  "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300",
+                  isSelectable ? "cursor-pointer" : "cursor-not-allowed",
+                  isSelectable && !isSelected && "hover:bg-mint-300/80 hover:ring-[3px]",
+                  isSelected
+                    ? "z-10 scale-[1.18] bg-pink-500 text-white ring-[3px] ring-pink-700 shadow-[0_0_0_4px_var(--color-pink-100)]"
+                    : style.className
                 )}
-                style={{
-                  left: `${left}%`,
-                  top: `${top}%`,
-                  width: `${widthPct}%`,
-                  height: `${heightPct}%`,
-                }}
-              />
+                style={{ ...position, ...(isSelected ? undefined : style.style) }}
+              >
+                {isSelected ? stand.id : standGlyph(status, stand.id)}
+              </button>
             );
           })}
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-sm text-ink-soft">
-        {LEGEND_ITEMS.map((item) => (
-          <div key={item.status} className="flex items-center gap-1.5">
-            <span
-              className={clsx(
-                "inline-block h-3.5 w-3.5 rounded ring-2",
-                STATUS_STYLES[item.status].fill,
-                STATUS_STYLES[item.status].ring
-              )}
-            />
-            {item.label}
-          </div>
+      <div className="mt-4 flex flex-wrap justify-center gap-2">
+        {LEGEND_ITEMS.map((status) => (
+          <span
+            key={status}
+            className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink"
+          >
+            <LegendSwatch status={status} />
+            {STATUS_STYLES[status].label}
+          </span>
         ))}
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3.5 w-3.5 rounded-full bg-lavender-500/25 ring-2 ring-lavender-500" />
+        <span className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink">
+          <span
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full bg-lavender-100 font-heading text-[12px] font-extrabold text-lavender-500 ring-2 ring-lavender-500"
+            aria-hidden="true"
+          >
+            i
+          </span>
           Módulo de informes
-        </div>
+        </span>
+        <span className="inline-flex items-center gap-2 rounded-full border border-pink-300 bg-pink-50 py-1.5 pl-2 pr-3 text-[13px] font-extrabold text-pink-700">
+          <span
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-pink-500 text-[11px] font-bold text-white shadow-[0_0_0_3px_var(--color-pink-100)]"
+            aria-hidden="true"
+          >
+            26
+          </span>
+          Tu stand
+        </span>
       </div>
     </div>
   );

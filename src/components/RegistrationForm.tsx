@@ -4,8 +4,10 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import clsx from "clsx";
 import { StandMap } from "@/components/StandMap";
 import { ReglamentoStep } from "@/components/ReglamentoStep";
+import { ConfirmationTicket } from "@/components/ConfirmationTicket";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Checkbox } from "@/components/ui/Checkbox";
 import {
   BUSINESS_CATEGORIES,
   EVENT_CONFIG,
@@ -15,6 +17,12 @@ import {
   type PricingPlan,
 } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
+import {
+  fileInputClass,
+  formErrorBoxClass,
+  inputClass,
+  labelClass,
+} from "@/lib/formClasses";
 import type { EventRow, EventStandRow } from "@/lib/types";
 
 interface RegistrationFormProps {
@@ -23,10 +31,6 @@ interface RegistrationFormProps {
 }
 
 type Step = "event" | "map" | "info" | "reglamento" | "payment" | "done";
-
-const inputClass =
-  "w-full rounded-2xl border border-pink-100 bg-white px-4 py-2.5 text-ink placeholder:text-ink-soft/60 focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-100";
-const labelClass = "text-sm font-semibold text-ink";
 
 // Nota: el formulario NO usa el atributo HTML `required`. Varios pasos
 // viven en el mismo <form> (los pasos anteriores solo se ocultan con
@@ -154,7 +158,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
       if (!res.ok) {
         if (data.code === "STAND_UNAVAILABLE") {
           setError(
-            "Ese stand acaba de ser apartado por alguien más 😿. Elige otro en el mapa."
+            "Ese stand acaba de ser apartado por alguien más. Elige otro en el mapa."
           );
           setSelectedStandId(null);
           setStep("map");
@@ -179,34 +183,11 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
   if (step === "done") {
     return (
-      <Card className="mx-auto max-w-lg p-8 text-center">
-        <div className="text-5xl">🎉</div>
-        <h2 className="font-heading mt-3 text-2xl font-bold text-ink">
-          ¡Tu registro quedó apartado!
-        </h2>
-        <p className="mt-2 text-ink-soft">
-          Stand <span className="font-bold text-pink-600">#{selectedStandId}</span> en{" "}
-          <span className="font-semibold text-ink">{selectedEvent?.name}</span>.
-          Estamos revisando tu comprobante de pago, te confirmaremos por correo o
-          WhatsApp en cuanto quede aprobado.
-        </p>
-        {folio && (
-          <>
-            <div className="mt-5 rounded-2xl bg-pink-50 px-4 py-4">
-              <p className="text-sm text-ink-soft">Tu folio</p>
-              <p className="font-heading text-3xl font-bold text-pink-600">#{folio}</p>
-            </div>
-            <p className="mt-3 text-xs text-ink-soft">
-              Guarda este folio. Si vas a completar tu pago en otro momento (por
-              ejemplo, primero un anticipo y después el resto), lo vas a necesitar en{" "}
-              <a href="/registro/completar" className="font-semibold text-pink-600 underline">
-                completar mi pago
-              </a>{" "}
-              para que no se duplique tu registro.
-            </p>
-          </>
-        )}
-      </Card>
+      <ConfirmationTicket
+        folio={folio}
+        standId={selectedStandId}
+        event={selectedEvent}
+      />
     );
   }
 
@@ -299,7 +280,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               </div>
               {selectedPlan?.shared && (
                 <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-2.5 text-sm text-ink-soft">
-                  🤝 {SHARED_PLAN_NOTICE}
+                  {SHARED_PLAN_NOTICE}
                 </p>
               )}
             </div>
@@ -385,7 +366,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               <div>
                 <label className={labelClass}>Giro del negocio</label>
                 <select
-                  className={`${inputClass} mt-1.5`}
+                  className={inputClass}
                   value={businessCategory}
                   onChange={(e) => setBusinessCategory(e.target.value)}
                 >
@@ -398,15 +379,12 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               </div>
 
               <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <input
-                    type="checkbox"
-                    checked={needsElectricity}
-                    onChange={(e) => setNeedsElectricity(e.target.checked)}
-                    className="h-4 w-4 rounded border-pink-300 text-pink-500 focus:ring-pink-300"
-                  />
+                <Checkbox
+                  checked={needsElectricity}
+                  onChange={(e) => setNeedsElectricity(e.target.checked)}
+                >
                   Necesito electricidad para mi stand
-                </label>
+                </Checkbox>
                 {needsElectricity && (
                   <textarea
                     value={electricityDetails}
@@ -419,15 +397,12 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               </div>
 
               <div>
-                <label className="flex items-center gap-2 text-sm font-semibold text-ink">
-                  <input
-                    type="checkbox"
-                    checked={needsGas}
-                    onChange={(e) => setNeedsGas(e.target.checked)}
-                    className="h-4 w-4 rounded border-pink-300 text-pink-500 focus:ring-pink-300"
-                  />
+                <Checkbox
+                  checked={needsGas}
+                  onChange={(e) => setNeedsGas(e.target.checked)}
+                >
                   Necesito gas para mi stand
-                </label>
+                </Checkbox>
                 {needsGas && (
                   <textarea
                     value={gasDetails}
@@ -440,7 +415,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               </div>
 
               {infoError && (
-                <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+                <p className={formErrorBoxClass}>
                   {infoError}
                 </p>
               )}
@@ -465,7 +440,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               onGirosAcceptedChange={setGirosAccepted}
             />
             {reglamentoError && (
-              <p className="mt-3 rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+              <p className={`mt-3 ${formErrorBoxClass}`}>
                 {reglamentoError}
               </p>
             )}
@@ -480,28 +455,52 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
           </div>
 
           <div className={step === "payment" ? "" : "hidden"}>
-            <Card className="mt-6 space-y-5 p-6">
-              <h2 className="font-heading text-xl font-bold text-ink">
-                5. Confirma tu pago
+            <Card tone="pago" className="mt-6 space-y-5 p-5 sm:p-8">
+              <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
+                Confirma tu pago
               </h2>
 
-              <div className="rounded-2xl bg-lavender-100/60 p-4 text-sm">
-                <p className="font-semibold text-ink">
-                  Stand #{selectedStandId} · {selectedPlan?.categoryLabel} (
-                  {selectedPlan?.days} {selectedPlan?.days === 1 ? "día" : "días"}) · $
-                  {selectedPlan?.price.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
-                </p>
-                <div className="mt-2 space-y-0.5 text-ink-soft">
-                  <p>Banco: {EVENT_CONFIG.bankInfo.bank}</p>
-                  <p>Titular: {EVENT_CONFIG.bankInfo.accountHolder}</p>
-                  <p>CLABE: {EVENT_CONFIG.bankInfo.clabe}</p>
-                  <p>Tarjeta: {EVENT_CONFIG.bankInfo.cardNumber}</p>
-                  <p>Concepto sugerido: {EVENT_CONFIG.bankInfo.concept}</p>
+              <div className="grid gap-4 sm:grid-cols-[1.1fr_1fr]">
+                {/* El monto es lo primero y lo más grande: nadie debe
+                    transferir de menos por no verlo. */}
+                <div className="rounded-2xl bg-pink-50 p-4">
+                  <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
+                    Monto a transferir
+                  </p>
+                  <p className="mt-1 font-mono text-[34px] font-medium leading-none text-ink">
+                    ${selectedPlan?.price.toLocaleString("es-MX")}
+                    <span className="ml-1.5 font-body text-sm font-bold text-ink-soft">
+                      {EVENT_CONFIG.currency}
+                    </span>
+                  </p>
+                  <p className="mt-2 text-[13.5px] leading-[1.5] text-ink-soft">
+                    Stand <strong className="text-ink">#{selectedStandId}</strong> ·{" "}
+                    {selectedPlan?.categoryLabel} · {selectedPlan?.days}{" "}
+                    {selectedPlan?.days === 1 ? "día" : "días"}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-lavender-100/70 p-4">
+                  <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-lavender-500">
+                    Datos para transferir
+                  </p>
+                  <dl className="mt-2 space-y-2">
+                    <BankRow label="Banco" value={EVENT_CONFIG.bankInfo.bank} />
+                    <BankRow label="Titular" value={EVENT_CONFIG.bankInfo.accountHolder} />
+                    <BankRow label="CLABE" value={EVENT_CONFIG.bankInfo.clabe} mono copyable />
+                    <BankRow
+                      label="Tarjeta"
+                      value={EVENT_CONFIG.bankInfo.cardNumber}
+                      mono
+                      copyable
+                    />
+                    <BankRow label="Concepto" value={EVENT_CONFIG.bankInfo.concept} />
+                  </dl>
                 </div>
               </div>
 
               <Field
-                label={`Monto transferido (${EVENT_CONFIG.currency})`}
+                label={`Monto que transferiste (${EVENT_CONFIG.currency})`}
                 type="number"
                 min={0}
                 step="0.01"
@@ -512,13 +511,13 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
               <div>
                 <label className={labelClass}>
-                  Captura de tu transferencia<span className="text-pink-500"> *</span>
+                  Captura de tu transferencia<span className="text-pink-600"> *</span>
                 </label>
                 <input
                   type="file"
                   accept="image/*,.pdf"
                   onChange={handleFileChange(setPaymentProof)}
-                  className={`${inputClass} mt-1.5 file:mr-3 file:rounded-full file:border-0 file:bg-pink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-pink-600`}
+                  className={fileInputClass}
                 />
               </div>
               <div>
@@ -529,27 +528,109 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                   type="file"
                   accept="image/*,.pdf"
                   onChange={handleFileChange(setPaymentProof2)}
-                  className={`${inputClass} mt-1.5 file:mr-3 file:rounded-full file:border-0 file:bg-pink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-pink-600`}
+                  className={fileInputClass}
                 />
               </div>
 
-              {error && (
-                <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
-                  {error}
-                </p>
-              )}
+              <p className="rounded-2xl bg-mint-100/70 px-4 py-3 text-[13.5px] leading-[1.55] text-ink-soft">
+                Tu comprobante lo revisa una persona del staff a mano. Sólo lo
+                usamos para confirmar tu pago y no se comparte con nadie más.
+              </p>
 
-              <div className="flex items-center justify-between pt-2">
+              {error && <p className={formErrorBoxClass}>{error}</p>}
+
+              <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <Button type="button" variant="ghost" onClick={() => setStep("reglamento")}>
                   ← Atrás
                 </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? "Enviando..." : "Confirmar registro 🎀"}
+                <Button type="submit" size="lg" disabled={submitting}>
+                  {submitting ? "Enviando..." : "Confirmar registro"}
                 </Button>
               </div>
             </Card>
           </div>
         </form>
+      )}
+    </div>
+  );
+}
+
+/** Fila etiqueta/valor de los datos bancarios, con copiar en un toque. */
+function BankRow({
+  label,
+  value,
+  mono,
+  copyable,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value.replace(/\s/g, ""));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // El valor sigue visible aunque el portapapeles falle.
+    }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
+        <dt className="text-[11px] font-bold uppercase tracking-[0.08em] text-ink-soft">
+          {label}
+        </dt>
+        <dd
+          className={clsx(
+            "break-words text-[14px] text-ink",
+            mono ? "font-mono" : "font-semibold"
+          )}
+        >
+          {value}
+        </dd>
+      </div>
+      {copyable && (
+        <button
+          type="button"
+          onClick={copy}
+          aria-label={`Copiar ${label}`}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-lavender-500 transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-lavender-300"
+        >
+          {copied ? (
+            <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
+              <path
+                d="M3.2 8.6l3 3L12.8 5"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4" aria-hidden="true">
+              <rect
+                x="5.5"
+                y="5.5"
+                width="7.5"
+                height="8.5"
+                rx="1.8"
+                stroke="currentColor"
+                strokeWidth={1.5}
+              />
+              <path
+                d="M10.2 3.5H4.8c-.9 0-1.6.7-1.6 1.6v5.3"
+                stroke="currentColor"
+                strokeWidth={1.5}
+                strokeLinecap="round"
+              />
+            </svg>
+          )}
+        </button>
       )}
     </div>
   );
@@ -568,24 +649,46 @@ function PlanCard({
     <button
       type="button"
       onClick={onSelect}
+      aria-pressed={selected}
       className={clsx(
-        "rounded-2xl border-2 p-4 text-left transition-colors",
+        "relative rounded-[20px] border-2 p-[18px] text-left transition-all",
+        "focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300/60",
         selected
-          ? "border-pink-500 bg-pink-50"
-          : "border-pink-100 bg-white hover:border-pink-300"
+          ? "border-pink-600 bg-pink-50 ring-4 ring-pink-100 shadow-[0_2px_0_0_var(--color-pink-300)]"
+          : "border-pink-100 bg-white hover:-translate-y-0.5 hover:border-pink-300"
       )}
     >
-      <div className="flex items-center justify-between">
-        <span className="font-heading font-semibold text-ink">{plan.categoryLabel}</span>
+      {/* La selección no depende sólo del color: aparece una etiqueta. */}
+      {selected && (
+        <span className="absolute -top-[11px] right-3.5 inline-flex items-center gap-1.5 rounded-full bg-pink-600 px-2.5 py-1 text-[11px] font-bold text-white">
+          <svg viewBox="0 0 16 16" fill="none" className="h-[11px] w-[11px]" aria-hidden="true">
+            <path
+              d="M3.2 8.6l3 3L12.8 5"
+              stroke="currentColor"
+              strokeWidth={2.6}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          Elegido
+        </span>
+      )}
+      <div className="flex items-center justify-between gap-2.5">
+        <span className="font-heading text-base font-bold text-ink">
+          {plan.categoryLabel}
+        </span>
         {plan.shared && (
-          <span className="rounded-full bg-lavender-100 px-2 py-0.5 text-xs font-semibold text-lavender-500">
+          <span className="shrink-0 rounded-full bg-lavender-100 px-2.5 py-0.5 text-[11px] font-bold text-lavender-500">
             Compartido
           </span>
         )}
       </div>
-      <p className="text-sm text-ink-soft">{plan.days === 1 ? "1 día" : "2 días"}</p>
-      <p className="font-heading mt-1 text-xl font-bold text-pink-600">
-        ${plan.price.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
+      <p className="mt-0.5 text-[13.5px] text-ink-soft">
+        {plan.days === 1 ? "1 día" : "2 días"}
+      </p>
+      <p className="mt-2 font-mono text-[21px] font-medium text-pink-700">
+        ${plan.price.toLocaleString("es-MX")}{" "}
+        <span className="font-body text-xs font-bold">{EVENT_CONFIG.currency}</span>
       </p>
     </button>
   );
@@ -603,9 +706,9 @@ function Field({
     <label className="block">
       <span className={labelClass}>
         {label}
-        {required && <span className="text-pink-500"> *</span>}
+        {required && <span className="text-pink-600"> *</span>}
       </span>
-      <input className={`${inputClass} mt-1.5`} {...rest} />
+      <input className={inputClass} {...rest} />
     </label>
   );
 }
@@ -618,33 +721,71 @@ const STEP_LABELS: { key: Step; label: string }[] = [
   { key: "payment", label: "Pago" },
 ];
 
+/**
+ * En móvil los cinco pasos con etiqueta no caben en 390px, así que ahí
+ * sólo se ven los puntos y una línea con el paso actual; las etiquetas
+ * completas aparecen desde 640px.
+ */
 function Steps({ current }: { current: Step }) {
   const currentIndex = STEP_LABELS.findIndex((s) => s.key === current);
+  const currentLabel = STEP_LABELS[currentIndex]?.label ?? "";
+
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
-      {STEP_LABELS.map((s, i) => (
-        <div key={s.key} className="flex items-center gap-2">
-          <div
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${
-              i <= currentIndex
-                ? "bg-pink-500 text-white"
-                : "bg-pink-100 text-ink-soft"
-            }`}
-          >
-            {i + 1}
-          </div>
-          <span
-            className={`text-sm font-semibold ${
-              i <= currentIndex ? "text-ink" : "text-ink-soft"
-            }`}
-          >
-            {s.label}
-          </span>
-          {i < STEP_LABELS.length - 1 && (
-            <div className="h-px w-4 bg-pink-100 sm:w-8" />
-          )}
-        </div>
-      ))}
+    <div>
+      <div className="flex items-center gap-2 sm:gap-2.5">
+        {STEP_LABELS.map((s, i) => {
+          const done = i < currentIndex;
+          const active = i === currentIndex;
+          return (
+            <div key={s.key} className="flex flex-1 items-center gap-2 last:flex-none">
+              <div className="flex shrink-0 items-center gap-2">
+                <span
+                  className={clsx(
+                    "flex h-7 w-7 items-center justify-center rounded-full text-[13px] font-bold",
+                    done && "bg-mint-500 text-white",
+                    active && "bg-pink-500 text-white ring-4 ring-pink-100",
+                    !done && !active && "border-2 border-pink-100 bg-white text-ink-soft"
+                  )}
+                >
+                  {done ? (
+                    <svg viewBox="0 0 16 16" fill="none" className="h-[13px] w-[13px]" aria-hidden="true">
+                      <path
+                        d="M3.2 8.6l3 3L12.8 5"
+                        stroke="currentColor"
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  ) : (
+                    i + 1
+                  )}
+                </span>
+                <span
+                  className={clsx(
+                    "hidden text-sm sm:inline",
+                    active ? "font-extrabold text-pink-700" : "font-semibold text-ink-soft"
+                  )}
+                >
+                  {s.label}
+                </span>
+              </div>
+              {i < STEP_LABELS.length - 1 && (
+                <span
+                  className={clsx(
+                    "h-[3px] flex-1 rounded-full sm:w-7 sm:flex-none",
+                    done ? "bg-mint-500" : "bg-pink-100"
+                  )}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 font-heading text-[15px] font-bold text-ink sm:hidden">
+        Paso {currentIndex + 1} de {STEP_LABELS.length} ·{" "}
+        <span className="text-pink-700">{currentLabel}</span>
+      </p>
     </div>
   );
 }

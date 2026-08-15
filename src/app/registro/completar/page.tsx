@@ -4,10 +4,13 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
+import {
+  fileInputClass,
+  formErrorBoxClass,
+  inputClass,
+  labelClass,
+} from "@/lib/formClasses";
 
-const inputClass =
-  "w-full rounded-2xl border border-pink-100 bg-white px-4 py-2.5 text-ink placeholder:text-ink-soft/60 focus:border-pink-300 focus:outline-none focus:ring-2 focus:ring-pink-100";
-const labelClass = "text-sm font-semibold text-ink";
 
 interface RegistrationSummary {
   folioNumber: number;
@@ -111,13 +114,16 @@ export default function CompletarPagoPage() {
     return (
       <main className="flex-1 px-4 py-14">
         <Card className="mx-auto max-w-lg p-8 text-center">
-          <div className="text-5xl">💸</div>
-          <h1 className="font-heading mt-3 text-2xl font-bold text-ink">
+          <h1 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¡Pago agregado a tu registro!
           </h1>
-          <p className="mt-2 text-ink-soft">
-            Ya llevas ${done.amountReported.toLocaleString("es-MX")} de $
-            {done.planPrice.toLocaleString("es-MX")} {EVENT_CONFIG.currency} reportados.
+          <p className="mt-3 font-mono text-[30px] font-medium leading-none text-pink-700">
+            ${done.amountReported.toLocaleString("es-MX")}
+            <span className="ml-1.5 font-body text-sm font-bold text-ink-soft">
+              de ${done.planPrice.toLocaleString("es-MX")} {EVENT_CONFIG.currency}
+            </span>
+          </p>
+          <p className="mt-3 text-[13.5px] leading-[1.55] text-ink-soft">
             Sigue en el mismo registro, no se creó uno nuevo.
           </p>
         </Card>
@@ -128,20 +134,22 @@ export default function CompletarPagoPage() {
   return (
     <main className="flex-1 px-4 py-14">
       <div className="mx-auto mb-8 max-w-lg text-center">
-        <h1 className="font-heading text-3xl font-bold text-ink">Completar mi pago</h1>
-        <p className="mt-2 text-ink-soft">
+        <h1 className="font-heading text-[34px] font-extrabold leading-[1.05] tracking-[-0.01em] text-ink">
+          Completar mi pago
+        </h1>
+        <p className="mt-3 text-base leading-[1.65] text-ink-soft">
           ¿Ya apartaste tu stand y vas a hacer tu segundo pago? Usa tu folio para
           agregarlo a tu mismo registro, sin duplicarlo.
         </p>
       </div>
 
       {!registration ? (
-        <Card className="mx-auto max-w-lg p-6">
+        <Card className="mx-auto max-w-[420px] p-5 sm:max-w-md sm:p-6">
           <form onSubmit={handleLookup} className="space-y-4">
             <div>
               <label className={labelClass}>Folio de tu registro</label>
               <input
-                className={`${inputClass} mt-1.5`}
+                className={`${inputClass} font-mono`}
                 value={folio}
                 onChange={(e) => setFolio(e.target.value)}
                 inputMode="numeric"
@@ -151,14 +159,14 @@ export default function CompletarPagoPage() {
             <div>
               <label className={labelClass}>Teléfono con el que te registraste</label>
               <input
-                className={`${inputClass} mt-1.5`}
+                className={inputClass}
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
             </div>
             {lookupError && (
-              <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+              <p className={formErrorBoxClass}>
                 {lookupError}
               </p>
             )}
@@ -168,7 +176,7 @@ export default function CompletarPagoPage() {
           </form>
         </Card>
       ) : (
-        <Card className="mx-auto max-w-lg p-6">
+        <Card className="mx-auto max-w-[420px] p-5 sm:max-w-md sm:p-6">
           <div className="rounded-2xl bg-lavender-100/60 p-4 text-sm">
             <p className="font-semibold text-ink">
               Stand #{registration.standId} · {registration.businessName}
@@ -181,7 +189,7 @@ export default function CompletarPagoPage() {
           </div>
 
           {registration.status === "rejected" ? (
-            <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">
+            <p className={`mt-4 ${formErrorBoxClass}`}>
               Este registro fue rechazado, así que ya no está apartado. Contacta a los
               organizadores en{" "}
               <a href={`mailto:${EVENT_CONFIG.contactEmail}`} className="underline">
@@ -196,7 +204,7 @@ export default function CompletarPagoPage() {
                   Monto de este pago ({EVENT_CONFIG.currency})
                 </label>
                 <input
-                  className={`${inputClass} mt-1.5`}
+                  className={inputClass}
                   type="number"
                   min={0}
                   step="0.01"
@@ -210,16 +218,16 @@ export default function CompletarPagoPage() {
                   type="file"
                   accept="image/*,.pdf"
                   onChange={handleFileChange}
-                  className={`${inputClass} mt-1.5 file:mr-3 file:rounded-full file:border-0 file:bg-pink-100 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-pink-600`}
+                  className={fileInputClass}
                 />
               </div>
               {submitError && (
-                <p className="rounded-2xl bg-red-50 px-4 py-2 text-sm text-red-600">
+                <p className={formErrorBoxClass}>
                   {submitError}
                 </p>
               )}
               <Button type="submit" disabled={submitting} className="w-full">
-                {submitting ? "Enviando..." : "Agregar este pago 🎀"}
+                {submitting ? "Enviando..." : "Agregar este pago"}
               </Button>
             </form>
           )}

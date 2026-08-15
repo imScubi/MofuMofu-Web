@@ -1,5 +1,6 @@
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { Card } from "@/components/ui/Card";
+import { FlowerShape } from "@/components/ui/Decorations";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import type { EventRow, EventStandRow } from "@/lib/types";
@@ -21,7 +22,7 @@ export default async function RegistroPage() {
     return (
       <main className="flex-1 px-4 py-16">
         <Card className="mx-auto max-w-lg p-8 text-center">
-          <div className="text-4xl">🌸</div>
+          <FlowerShape className="mx-auto h-10 w-10" />
           <h1 className="font-heading mt-3 text-2xl font-bold text-ink">
             Aún no hay ediciones abiertas
           </h1>
@@ -61,7 +62,7 @@ export default async function RegistroPage() {
         <h1 className="font-heading text-3xl font-bold text-ink">
           Registro de expositores
         </h1>
-        <p className="mt-2 text-ink-soft">Sigue estos pasos para apartar tu lugar 🎀</p>
+        <p className="mt-2 text-ink-soft">Sigue estos pasos para apartar tu lugar</p>
       </div>
       <RegistrationForm events={events} standsByEvent={standsByEvent} />
     </main>

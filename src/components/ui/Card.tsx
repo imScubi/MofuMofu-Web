@@ -1,13 +1,21 @@
 import { HTMLAttributes } from "react";
 import clsx from "clsx";
 
-export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+interface CardProps extends HTMLAttributes<HTMLDivElement> {
+  /** Borde lavanda de 2px. Se usa una sola vez en el sitio: el paso de pago. */
+  tone?: "normal" | "pago";
+}
+
+const toneClasses = {
+  normal:
+    "border border-pink-100 shadow-[0_2px_0_0_var(--color-pink-100),0_18px_40px_-24px_rgba(163,36,80,0.28)]",
+  pago: "border-2 border-lavender-300 shadow-[0_2px_0_0_var(--color-lavender-300),0_20px_44px_-24px_rgba(107,75,196,0.3)]",
+} as const;
+
+export function Card({ className, tone = "normal", ...props }: CardProps) {
   return (
     <div
-      className={clsx(
-        "bg-white rounded-3xl shadow-[0_8px_24px_-8px_rgba(255,126,182,0.25)] border border-pink-100",
-        className
-      )}
+      className={clsx("bg-white rounded-[28px]", toneClasses[tone], className)}
       {...props}
     />
   );
