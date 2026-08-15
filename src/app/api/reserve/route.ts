@@ -124,7 +124,11 @@ export async function POST(request: Request) {
       err instanceof ProofUploadError
         ? "El archivo del comprobante es demasiado grande (máx. 8MB)."
         : "No pudimos subir tu comprobante de pago. Intenta de nuevo.";
-    return NextResponse.json({ message }, { status: 400 });
+    // El detalle sirve para diagnosticar: sin él, cualquier falla de
+    // Storage se ve igual que "no pasa nada".
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("upload proof error", err);
+    return NextResponse.json({ message, detail }, { status: 400 });
   }
 
   if (!proofPath) {
@@ -170,7 +174,10 @@ export async function POST(request: Request) {
     }
     console.error("reserve_stand error", error);
     return NextResponse.json(
-      { message: "No pudimos completar tu registro. Intenta de nuevo." },
+      {
+        message: "No pudimos completar tu registro. Intenta de nuevo.",
+        detail: error.message,
+      },
       { status: 500 }
     );
   }

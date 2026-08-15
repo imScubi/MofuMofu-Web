@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { StandMap } from "@/components/StandMap";
 import { ReglamentoStep } from "@/components/ReglamentoStep";
@@ -73,6 +73,15 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const [paymentProof2, setPaymentProof2] = useState<File | null>(null);
 
   const eventStands = selectedEvent ? (standsByEvent[selectedEvent.id] ?? []) : [];
+
+  // El error del paso de pago queda debajo de un formulario largo: si no
+  // se trae a la vista, el envío fallido se siente como "no pasó nada".
+  const errorRef = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error) {
+      errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [error]);
 
   function handleSelectEvent(event: EventRow) {
     setSelectedEvent(event);
@@ -151,9 +160,27 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     formData.set("paymentProof", paymentProof);
     if (paymentProof2) formData.set("paymentProof2", paymentProof2);
 
+    // Sin timeout, si el servidor se queda colgado el botón se queda en
+    // "Enviando..." para siempre y parece que no pasó nada.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+
     try {
-      const res = await fetch("/api/reserve", { method: "POST", body: formData });
-      const data = await res.json();
+      const res = await fetch("/api/reserve", {
+        method: "POST",
+        body: formData,
+        signal: controller.signal,
+      });
+
+      // Si el servidor devuelve HTML (p. ej. una página de error), res.json()
+      // truena y perderíamos la causa: leemos texto y luego intentamos parsear.
+      const raw = await res.text();
+      let data: { code?: string; message?: string; detail?: string; folio_number?: number } = {};
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        data = {};
+      }
 
       if (!res.ok) {
         if (data.code === "STAND_UNAVAILABLE") {
@@ -163,16 +190,31 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
           setSelectedStandId(null);
           setStep("map");
         } else {
-          setError(data.message || "No pudimos completar tu registro. Intenta de nuevo.");
+          const base =
+            data.message || "No pudimos completar tu registro. Intenta de nuevo.";
+          const detail = data.detail || (!raw.trim().startsWith("{") ? raw.slice(0, 200) : "");
+          setError(`${base} (error ${res.status}${detail ? `: ${detail}` : ""})`);
         }
+        return;
+      }
+
+      if (typeof data.folio_number !== "number") {
+        setError(
+          `El registro se envió pero el servidor no devolvió folio (error ${res.status}). Contáctanos antes de intentar de nuevo para no duplicar tu lugar.`
+        );
         return;
       }
 
       setFolio(data.folio_number);
       setStep("done");
-    } catch {
-      setError("Ocurrió un error de conexión. Intenta de nuevo.");
+    } catch (err) {
+      setError(
+        err instanceof Error && err.name === "AbortError"
+          ? "El servidor tardó demasiado en responder. Revisa tu conexión e intenta de nuevo."
+          : "Ocurrió un error de conexión. Intenta de nuevo."
+      );
     } finally {
+      clearTimeout(timeout);
       setSubmitting(false);
     }
   }
@@ -537,7 +579,11 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                 usamos para confirmar tu pago y no se comparte con nadie más.
               </p>
 
-              {error && <p className={formErrorBoxClass}>{error}</p>}
+              {error && (
+                <p ref={errorRef} role="alert" className={formErrorBoxClass}>
+                  {error}
+                </p>
+              )}
 
               <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:items-center sm:justify-between">
                 <Button type="button" variant="ghost" onClick={() => setStep("reglamento")}>

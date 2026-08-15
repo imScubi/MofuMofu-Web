@@ -245,15 +245,19 @@ export function StandMap({
           </span>
           Módulo de informes
         </span>
-        <span className="inline-flex items-center gap-2 rounded-full border border-pink-300 bg-pink-50 py-1.5 pl-2 pr-3 text-[13px] font-extrabold text-pink-700">
-          <span
-            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-pink-500 text-[11px] font-bold text-white shadow-[0_0_0_3px_var(--color-pink-100)]"
-            aria-hidden="true"
-          >
-            26
+        {/* Sólo tiene sentido cuando ya hay uno elegido: si no, la
+            leyenda anuncia un estado que no existe en el mapa. */}
+        {selectedId && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-pink-300 bg-pink-50 py-1.5 pl-2 pr-3 text-[13px] font-extrabold text-pink-700">
+            <span
+              className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] bg-pink-500 text-[11px] font-bold text-white shadow-[0_0_0_3px_var(--color-pink-100)]"
+              aria-hidden="true"
+            >
+              {selectedId}
+            </span>
+            Tu stand
           </span>
-          Tu stand
-        </span>
+        )}
       </div>
     </div>
   );
