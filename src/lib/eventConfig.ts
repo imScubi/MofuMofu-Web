@@ -35,9 +35,3 @@ export const BUSINESS_CATEGORIES = [
   "Otro",
 ] as const;
 
-export const ELECTRICITY_OPTIONS = [
-  { value: "none", label: "No necesito electricidad" },
-  { value: "basic", label: "Básica (cargar celular, luces LED)" },
-  { value: "medium", label: "Media (laptop, plancha, cafetera)" },
-  { value: "high", label: "Alta (freidora, refrigerador, equipo pesado)" },
-] as const;

@@ -4,11 +4,7 @@ import { FormEvent, useState } from "react";
 import { StandMap } from "@/components/StandMap";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import {
-  BUSINESS_CATEGORIES,
-  ELECTRICITY_OPTIONS,
-  EVENT_CONFIG,
-} from "@/lib/eventConfig";
+import { BUSINESS_CATEGORIES, EVENT_CONFIG } from "@/lib/eventConfig";
 import type { StandRow } from "@/lib/types";
 
 interface RegistrationFormProps {
@@ -31,9 +27,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
   const [folio, setFolio] = useState<string | null>(null);
 
   const [businessCategory, setBusinessCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
-  const [electricityOption, setElectricityOption] = useState<string>(
-    ELECTRICITY_OPTIONS[0].value
-  );
+  const [needsElectricity, setNeedsElectricity] = useState(false);
   const [needsGas, setNeedsGas] = useState(false);
 
   function handleSelectStand(id: string, price: number) {
@@ -50,8 +44,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
     const formData = new FormData(form);
     formData.set("standId", selectedStand.id);
     formData.set("businessCategory", businessCategory);
-    formData.set("needsElectricity", String(electricityOption !== "none"));
-    formData.set("electricityDetails", electricityOption);
+    formData.set("needsElectricity", String(needsElectricity));
     formData.set("needsGas", String(needsGas));
 
     try {
@@ -173,18 +166,24 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
               </div>
 
               <div>
-                <label className={labelClass}>Necesidades de electricidad</label>
-                <select
-                  className={`${inputClass} mt-1.5`}
-                  value={electricityOption}
-                  onChange={(e) => setElectricityOption(e.target.value)}
-                >
-                  {ELECTRICITY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
+                <label className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <input
+                    type="checkbox"
+                    checked={needsElectricity}
+                    onChange={(e) => setNeedsElectricity(e.target.checked)}
+                    className="h-4 w-4 rounded border-pink-300 text-pink-500 focus:ring-pink-300"
+                  />
+                  Necesito electricidad para mi stand
+                </label>
+                {needsElectricity && (
+                  <textarea
+                    name="electricityDetails"
+                    required
+                    placeholder="Describe con detalle qué vas a conectar: cuántos focos/luces, si llevas laptop, plancha, cafetera, freidora, refrigerador, etc., y cuánto tiempo estará encendido cada aparato."
+                    className={`${inputClass} mt-2`}
+                    rows={3}
+                  />
+                )}
               </div>
 
               <div>
