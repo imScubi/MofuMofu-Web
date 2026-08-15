@@ -138,7 +138,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
 
       {(step === "info" || step === "payment") && (
         <form onSubmit={handleSubmit}>
-          {step === "info" && (
+          <div className={step === "info" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
               <h2 className="font-heading text-xl font-bold text-ink">
                 2. Cuéntanos de tu negocio
@@ -216,7 +216,7 @@ export function RegistrationForm({ initialStands }: RegistrationFormProps) {
                 </Button>
               </div>
             </Card>
-          )}
+          </div>
 
           <div className={step === "payment" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
