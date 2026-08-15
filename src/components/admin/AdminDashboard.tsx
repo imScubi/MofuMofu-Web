@@ -52,6 +52,7 @@ export function AdminDashboard({
   const [registrations, setRegistrations] = useState(initialRegistrations);
   const [filter, setFilter] = useState<"all" | RegistrationStatus>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Sincroniza el estado local cuando el servidor manda props nuevas
   // (tras un router.refresh()). Se ajusta durante el render, no en un
@@ -157,6 +158,27 @@ export function AdminDashboard({
       }
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function deleteRegistration(id: string) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        const reg = registrations.find((r) => r.id === id);
+        setRegistrations((prev) => prev.filter((r) => r.id !== id));
+        if (reg) {
+          setStands((prev) =>
+            prev.map((s) =>
+              s.stand_id === reg.stand_id ? { ...s, status: "available" } : s
+            )
+          );
+        }
+      }
+    } finally {
+      setBusyId(null);
+      setConfirmDeleteId(null);
     }
   }
 
@@ -319,26 +341,64 @@ export function AdminDashboard({
                   </div>
                 </Td>
                 <Td>
-                  <div className="flex gap-2">
-                    <Button
-                      size="md"
-                      variant="secondary"
-                      disabled={busyId === r.id || r.status === "approved"}
-                      onClick={() => updateStatus(r.id, "approved")}
-                      className="!px-3 !py-1 text-xs"
-                    >
-                      Aprobar
-                    </Button>
-                    <Button
-                      size="md"
-                      variant="danger"
-                      disabled={busyId === r.id || r.status === "rejected"}
-                      onClick={() => updateStatus(r.id, "rejected")}
-                      className="!px-3 !py-1 text-xs"
-                    >
-                      Rechazar
-                    </Button>
-                  </div>
+                  {confirmDeleteId === r.id ? (
+                    <div className="min-w-[190px] rounded-xl bg-red-50 p-2">
+                      <p className="text-xs font-semibold text-red-700">
+                        ¿Borrar el folio #{r.folio_number} para siempre?
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-red-600">
+                        Se libera el stand #{r.stand_id} y se borran sus comprobantes.
+                      </p>
+                      <div className="mt-2 flex gap-2">
+                        <Button
+                          size="md"
+                          variant="danger"
+                          disabled={busyId === r.id}
+                          onClick={() => deleteRegistration(r.id)}
+                          className="!px-3 !py-1 text-xs"
+                        >
+                          Sí, borrar
+                        </Button>
+                        <Button
+                          size="md"
+                          variant="ghost"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="!px-3 !py-1 text-xs"
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="md"
+                        variant="secondary"
+                        disabled={busyId === r.id || r.status === "approved"}
+                        onClick={() => updateStatus(r.id, "approved")}
+                        className="!px-3 !py-1 text-xs"
+                      >
+                        Aprobar
+                      </Button>
+                      <Button
+                        size="md"
+                        variant="danger"
+                        disabled={busyId === r.id || r.status === "rejected"}
+                        onClick={() => updateStatus(r.id, "rejected")}
+                        className="!px-3 !py-1 text-xs"
+                      >
+                        Rechazar
+                      </Button>
+                      <button
+                        type="button"
+                        disabled={busyId === r.id}
+                        onClick={() => setConfirmDeleteId(r.id)}
+                        className="text-xs text-ink-soft underline hover:text-red-600 disabled:opacity-40"
+                      >
+                        Borrar
+                      </button>
+                    </div>
+                  )}
                 </Td>
               </tr>
             ))}
