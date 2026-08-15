@@ -10,7 +10,7 @@ export const EVENT_CONFIG = {
     bank: "STP Plata",
     accountHolder: "Roberto Renne Coronado Luna",
     clabe: "646192405603826008",
-    cardNumber: "0000 0000 0000 0000",
+    cardNumber: "5324 1089 9295 3850",
     concept: "Nombre de tu negocio + número de stand",
   },
   contactEmail: "mofumofuu.market@gmail.com",
