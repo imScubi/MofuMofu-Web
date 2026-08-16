@@ -3,6 +3,8 @@ import Link from "next/link";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import { createClient } from "@/lib/supabase/client";
+import { contestAvailability } from "@/lib/contestStatus";
+import { getContestType } from "@/lib/contestTypes";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import {
@@ -11,7 +13,7 @@ import {
   ParkWave,
   StarShape,
 } from "@/components/ui/Decorations";
-import type { EventRow } from "@/lib/types";
+import type { ContestRow, EventRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +44,22 @@ export default async function Home() {
     .order("date_start");
 
   const events = (data as EventRow[]) ?? [];
+
+  // Las convocatorias sólo aparecen en la portada si hay alguna abierta:
+  // un bloque que sólo dice "no hay nada" no le sirve a nadie.
+  const { data: contestsData } = events.length
+    ? await supabase
+        .from("contests")
+        .select("*")
+        .in(
+          "event_id",
+          events.map((e) => e.id)
+        )
+        .order("created_at")
+    : { data: [] };
+  const openContests = ((contestsData as ContestRow[]) ?? []).filter(
+    (c) => contestAvailability(c).open
+  );
 
   return (
     <main className="flex-1">
@@ -80,6 +98,17 @@ export default async function Home() {
                   Completa tu pago aquí
                 </Link>
               </p>
+              {openContests.length > 0 && (
+                <p className="text-[13.5px] leading-[1.55] text-ink-soft">
+                  ¿Vienes a concursar?{" "}
+                  <Link
+                    href="/convocatorias"
+                    className="font-bold text-pink-700 underline underline-offset-2"
+                  >
+                    Inscríbete en una convocatoria
+                  </Link>
+                </p>
+              )}
             </div>
           </div>
 
@@ -120,6 +149,46 @@ export default async function Home() {
                   </p>
                 </Card>
               ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {openContests.length > 0 && (
+        <section className="px-5 pt-12 pb-2 sm:pt-16">
+          <div className="mx-auto max-w-5xl">
+            <h2 className="text-center font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
+              Convocatorias abiertas
+            </h2>
+            <p className="mt-2 text-center text-[14.5px] text-ink-soft">
+              Concursos y torneos en los que puedes participar.
+            </p>
+            <div className="mt-5 grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+              {openContests.map((contest) => {
+                const spotsLeft = contestAvailability(contest).spotsLeft;
+                return (
+                  <Card key={contest.id} className="p-5">
+                    <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
+                      {getContestType(contest.type).label}
+                    </p>
+                    <p className="mt-1.5 font-heading text-lg font-bold leading-tight text-ink">
+                      {contest.name}
+                    </p>
+                    {spotsLeft != null && (
+                      <p className="mt-2 text-[13.5px] text-ink-soft">
+                        Quedan{" "}
+                        <span className="font-bold text-mint-500">{spotsLeft}</span> de{" "}
+                        {contest.max_entries} lugares
+                      </p>
+                    )}
+                    <Link href={`/convocatorias/${contest.id}`} className="mt-4 block">
+                      <Button variant="secondary" className="w-full">
+                        Inscribirme
+                      </Button>
+                    </Link>
+                  </Card>
+                );
+              })}
             </div>
           </div>
         </section>

@@ -57,3 +57,35 @@ export interface RegistrationRow {
   created_at: string;
   updated_at: string;
 }
+
+/** Una convocatoria (concurso) dentro de una edición. */
+export interface ContestRow {
+  id: string;
+  event_id: string;
+  type: string;
+  name: string;
+  description: string | null;
+  /** null = sin límite de inscritos. */
+  max_entries: number | null;
+  registration_deadline: string | null;
+  is_open: boolean;
+  /** Lo mantiene un trigger; sirve para mostrar los lugares que quedan. */
+  entries_count: number;
+  created_at: string;
+}
+
+export interface ContestEntryRow {
+  id: string;
+  contest_id: string;
+  event_id: string;
+  folio_number: number;
+  participant_name: string;
+  phone: string;
+  email: string | null;
+  /** Respuestas propias del tipo de convocatoria. */
+  answers: Record<string, string>;
+  status: RegistrationStatus;
+  admin_notes: string | null;
+  created_at: string;
+  updated_at: string;
+}

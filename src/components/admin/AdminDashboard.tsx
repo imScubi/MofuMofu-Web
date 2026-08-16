@@ -224,6 +224,9 @@ export function AdminDashboard({
           <Link href="/admin/dashboard/eventos">
             <Button variant="ghost">Ediciones 🗓️</Button>
           </Link>
+          <Link href={`/admin/dashboard/convocatorias?event=${selectedEvent.id}`}>
+            <Button variant="ghost">Convocatorias 🎤</Button>
+          </Link>
           <a href={`/api/admin/export-excel?event=${selectedEvent.id}`}>
             <Button variant="secondary">Descargar Excel</Button>
           </a>

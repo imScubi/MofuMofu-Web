@@ -215,6 +215,12 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
                   Ver registros
                 </Button>
               </Link>
+
+              <Link href={`/admin/dashboard/convocatorias?event=${event.id}`}>
+                <Button variant="ghost" className="!px-4 !py-1.5 text-xs">
+                  Convocatorias
+                </Button>
+              </Link>
             </div>
           </Card>
         ))}
