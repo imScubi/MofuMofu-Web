@@ -101,31 +101,6 @@ export const CONTEST_TYPES: readonly ContestType[] = [
         required: true,
         help: "Pega el link de Spotify o YouTube. Si no lo tienes a la mano, escribe el nombre de la canción y el artista.",
       },
-      {
-        id: "grupoOriginal",
-        label: "Grupo o artista que hacen cover",
-        type: "text",
-        placeholder: "Ej. TWICE, Stray Kids, BABYMONSTER",
-      },
-      {
-        id: "videoReferencia",
-        label: "Link de un video de referencia (opcional)",
-        type: "text",
-        placeholder: "El video del que sacaron la coreografía, o uno de ustedes ensayando",
-      },
-      {
-        id: "duracion",
-        label: "Duración aproximada de su presentación",
-        type: "text",
-        placeholder: "Ej. 3 minutos",
-      },
-      {
-        id: "necesidades",
-        label: "Necesidades de audio o escenario",
-        type: "textarea",
-        placeholder: "Micrófonos, props que van a montar, entradas o salidas especiales, etc.",
-        maxLength: 600,
-      },
     ],
   },
   {
