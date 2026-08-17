@@ -19,17 +19,17 @@ export const EVENT_CONFIG = {
   // del market y mostrarlas juntas cuando alguien busca el nombre.
   socials: {
     instagram: "https://www.instagram.com/mofumofuu.market/",
-    facebook: "",
-    tiktok: "",
+    facebook: "https://www.facebook.com/share/1Gjf2N4UWe/",
+    tiktok: "https://www.tiktok.com/@mofu.mofu.market",
   },
 } as const;
 
-// Dónde se hace el evento.
+// Sede por defecto: la que se usa cuando una edición no trae la suya.
 //
-// LLENA ESTO: mientras "city" esté vacío, la web no le puede decir a
-// Google en qué ciudad es, y una búsqueda como "bazar kawaii en <tu
-// ciudad>" no la va a encontrar. Con estos datos aparece además la
-// ficha del evento con lugar y fechas en los resultados.
+// El market no tiene sede fija, así que cada edición puede sobrescribir
+// el parque y la ciudad desde /admin/dashboard/eventos. Esto es lo que
+// se usa para hablar del market en general (título del sitio, texto de
+// la portada) y como respaldo de las ediciones sin sede.
 interface Venue {
   name: string;
   street: string;
@@ -40,22 +40,63 @@ interface Venue {
 }
 
 export const VENUE: Venue = {
-  /** Nombre del parque o recinto. Ej. "Parque Fundidora". */
-  name: "",
-  /** Calle y número, si aplica. */
+  /** El parque donde más se ha hecho. */
+  name: "Parque Clouthier",
+  /** Calle y número, si algún día hace falta. */
   street: "",
-  /** Ej. "Monterrey". */
-  city: "",
-  /** Ej. "Nuevo León". */
-  state: "",
+  city: "Monterrey",
+  state: "Nuevo León",
   country: "México",
-  /** Link de Google Maps del lugar, opcional. */
-  mapsUrl: "",
+  mapsUrl: "https://maps.app.goo.gl/SZvuDYUTeDRge2Cg8",
 };
 
-/** "Parque Fundidora, Monterrey, Nuevo León" con lo que esté lleno. */
+/** "Parque Clouthier, Monterrey, Nuevo León" con lo que esté lleno. */
 export function venueLine(): string {
   return [VENUE.name, VENUE.city, VENUE.state].filter(Boolean).join(", ");
+}
+
+/**
+ * "Monterrey, Nuevo León" — sin el parque.
+ *
+ * Es lo que va en el título y la descripción del sitio: la sede cambia
+ * entre ediciones, así que el nombre del parque ahí sería mentira a
+ * medias, y además un título largo lo corta Google a la mitad.
+ */
+export function cityLine(): string {
+  return [VENUE.city, VENUE.state].filter(Boolean).join(", ");
+}
+
+/**
+ * La sede de una edición concreta: la suya si la tiene, y si no la de
+ * por defecto. Devuelve también el link de mapa que corresponda, para no
+ * mandar a alguien al parque equivocado.
+ *
+ * Con ciudad propia no se asume el estado ni el parque de siempre: una
+ * edición en otra ciudad puede estar en otro estado, y dar por hecho
+ * "Nuevo León" mandaría a la gente a otro lado. Si esa sede está fuera
+ * del estado, se escribe en el mismo campo ("Saltillo, Coahuila").
+ */
+export function eventVenue(event: {
+  venue_name?: string | null;
+  venue_city?: string | null;
+  venue_maps_url?: string | null;
+}): { name: string; city: string; state: string; line: string; mapsUrl: string } {
+  const ownCity = Boolean(event.venue_city);
+
+  const name = event.venue_name || (ownCity ? "" : VENUE.name);
+  const city = event.venue_city || VENUE.city;
+  const state = ownCity ? "" : VENUE.state;
+  const mapsUrl =
+    event.venue_maps_url ||
+    (event.venue_name || ownCity ? "" : VENUE.mapsUrl);
+
+  return {
+    name,
+    city,
+    state,
+    line: [name, city, state].filter(Boolean).join(", "),
+    mapsUrl,
+  };
 }
 
 // Planes de precio para el stand. El expositor elige uno después de

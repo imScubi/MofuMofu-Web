@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Mono, M_PLUS_Rounded_1c, Nunito } from "next/font/google";
-import { EVENT_CONFIG, venueLine } from "@/lib/eventConfig";
+import { EVENT_CONFIG, cityLine } from "@/lib/eventConfig";
 import { SITE_URL } from "@/lib/site";
 import "./globals.css";
 
@@ -25,7 +25,7 @@ const dmMono = DM_Mono({
   weight: ["400", "500"],
 });
 
-const where = venueLine();
+const where = cityLine();
 
 // La descripción es lo que Google muestra debajo del título, así que
 // dice qué es el market y para quién, no lo que hace la web.

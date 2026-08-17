@@ -7,7 +7,7 @@ import { StarShape } from "@/components/ui/Decorations";
 import { createClient } from "@/lib/supabase/client";
 import { contestAvailability } from "@/lib/contestStatus";
 import { getContestType } from "@/lib/contestTypes";
-import { EVENT_CONFIG } from "@/lib/eventConfig";
+import { EVENT_CONFIG, eventVenue } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { ContestRow, EventRow } from "@/lib/types";
 
@@ -93,6 +93,7 @@ export default async function ConvocatoriasPage() {
               <h2 className="font-heading text-xl font-bold text-ink">{event.name}</h2>
               <p className="text-sm text-ink-soft">
                 {formatEventDates(event.date_start, event.date_end)}
+                {eventVenue(event).line ? ` · ${eventVenue(event).line}` : ""}
               </p>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2">

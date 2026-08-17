@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
+import { eventVenue, VENUE } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { EventRow } from "@/lib/types";
 
@@ -24,6 +25,9 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
   const [dateEnd, setDateEnd] = useState("");
   const [paymentDeadline, setPaymentDeadline] = useState("");
   const [restrictedGiros, setRestrictedGiros] = useState(false);
+  const [venueName, setVenueName] = useState("");
+  const [venueCity, setVenueCity] = useState("");
+  const [venueMapsUrl, setVenueMapsUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -47,6 +51,9 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
           dateEnd,
           paymentDeadline,
           restrictedGirosEnabled: restrictedGiros,
+          venueName: venueName.trim(),
+          venueCity: venueCity.trim(),
+          venueMapsUrl: venueMapsUrl.trim(),
         }),
       });
       const data = await res.json();
@@ -60,6 +67,9 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
       setDateEnd("");
       setPaymentDeadline("");
       setRestrictedGiros(false);
+      setVenueName("");
+      setVenueCity("");
+      setVenueMapsUrl("");
       router.refresh();
     } catch {
       setError("Ocurrió un error de conexión. Intenta de nuevo.");
@@ -143,6 +153,44 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
             </div>
           </div>
 
+          {/* La sede cambia entre ediciones; en blanco se usa la de
+              siempre para no tener que reescribirla cada vez. */}
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <label className={labelClass}>Sede</label>
+              <input
+                className={inputClass}
+                value={venueName}
+                onChange={(e) => setVenueName(e.target.value)}
+                placeholder={VENUE.name}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Ciudad</label>
+              <input
+                className={inputClass}
+                value={venueCity}
+                onChange={(e) => setVenueCity(e.target.value)}
+                placeholder={VENUE.city}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Link de Google Maps</label>
+              <input
+                type="url"
+                className={inputClass}
+                value={venueMapsUrl}
+                onChange={(e) => setVenueMapsUrl(e.target.value)}
+                placeholder="Opcional"
+              />
+            </div>
+          </div>
+          <p className="-mt-2 text-[13px] text-ink-soft">
+            Si dejas la sede en blanco se usa {VENUE.name}, {VENUE.city}. Si la
+            edición es fuera de {VENUE.state}, escribe el estado junto a la
+            ciudad (ej. &quot;Saltillo, Coahuila&quot;).
+          </p>
+
           <label className="flex items-center gap-2 text-sm font-semibold text-ink">
             <input
               type="checkbox"
@@ -175,6 +223,12 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
                 <p className="text-sm text-ink-soft">
                   Límite de pago: {formatDate(event.payment_deadline)}
                 </p>
+                <p className="text-sm text-ink-soft">
+                  Sede: {eventVenue(event).line || "sin definir"}
+                  {!event.venue_name && !event.venue_city && (
+                    <span className="ml-1 text-xs">(la de siempre)</span>
+                  )}
+                </p>
               </div>
               <span
                 className={`rounded-full px-3 py-1 text-xs font-semibold ${
@@ -185,6 +239,55 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
               >
                 {event.is_open ? "Registro abierto" : "Registro cerrado"}
               </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div>
+                <label className={labelClass}>Sede de esta edición</label>
+                <input
+                  className={inputClass}
+                  defaultValue={event.venue_name ?? ""}
+                  placeholder={VENUE.name}
+                  disabled={busyId === event.id}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (event.venue_name ?? "")) {
+                      patchEvent(event.id, { venueName: value });
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Ciudad</label>
+                <input
+                  className={inputClass}
+                  defaultValue={event.venue_city ?? ""}
+                  placeholder={VENUE.city}
+                  disabled={busyId === event.id}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (event.venue_city ?? "")) {
+                      patchEvent(event.id, { venueCity: value });
+                    }
+                  }}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Link de Google Maps</label>
+                <input
+                  type="url"
+                  className={inputClass}
+                  defaultValue={event.venue_maps_url ?? ""}
+                  placeholder="Opcional"
+                  disabled={busyId === event.id}
+                  onBlur={(e) => {
+                    const value = e.target.value.trim();
+                    if (value !== (event.venue_maps_url ?? "")) {
+                      patchEvent(event.id, { venueMapsUrl: value });
+                    }
+                  }}
+                />
+              </div>
             </div>
 
             <div className="mt-4 flex flex-wrap items-center gap-3">

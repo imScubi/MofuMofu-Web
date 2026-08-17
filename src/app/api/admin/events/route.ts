@@ -14,6 +14,9 @@ const createSchema = z.object({
   dateEnd: dateSchema,
   paymentDeadline: dateSchema,
   restrictedGirosEnabled: z.boolean(),
+  venueName: z.string().trim().max(120).optional().or(z.literal("")),
+  venueCity: z.string().trim().max(80).optional().or(z.literal("")),
+  venueMapsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
 });
 
 const updateSchema = z.object({
@@ -24,6 +27,9 @@ const updateSchema = z.object({
   paymentDeadline: dateSchema.optional(),
   restrictedGirosEnabled: z.boolean().optional(),
   isOpen: z.boolean().optional(),
+  venueName: z.string().trim().max(120).optional().or(z.literal("")),
+  venueCity: z.string().trim().max(80).optional().or(z.literal("")),
+  venueMapsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
 });
 
 export async function POST(request: Request) {
@@ -39,8 +45,16 @@ export async function POST(request: Request) {
     );
   }
 
-  const { name, dateStart, dateEnd, paymentDeadline, restrictedGirosEnabled } =
-    parsed.data;
+  const {
+    name,
+    dateStart,
+    dateEnd,
+    paymentDeadline,
+    restrictedGirosEnabled,
+    venueName,
+    venueCity,
+    venueMapsUrl,
+  } = parsed.data;
 
   if (dateEnd < dateStart) {
     return NextResponse.json(
@@ -59,6 +73,9 @@ export async function POST(request: Request) {
       date_end: dateEnd,
       payment_deadline: paymentDeadline,
       restricted_giros_enabled: restrictedGirosEnabled,
+      venue_name: venueName || null,
+      venue_city: venueCity || null,
+      venue_maps_url: venueMapsUrl || null,
     })
     .select()
     .single();
@@ -110,6 +127,10 @@ export async function PATCH(request: Request) {
   if (fields.restrictedGirosEnabled !== undefined)
     update.restricted_giros_enabled = fields.restrictedGirosEnabled;
   if (fields.isOpen !== undefined) update.is_open = fields.isOpen;
+  if (fields.venueName !== undefined) update.venue_name = fields.venueName || null;
+  if (fields.venueCity !== undefined) update.venue_city = fields.venueCity || null;
+  if (fields.venueMapsUrl !== undefined)
+    update.venue_maps_url = fields.venueMapsUrl || null;
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ message: "Nada que actualizar." }, { status: 400 });

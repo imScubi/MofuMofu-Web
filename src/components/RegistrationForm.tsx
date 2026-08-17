@@ -15,6 +15,7 @@ import {
   PRICING_PLANS,
   SHARED_PLAN_NOTICE,
   STAND_INCLUDES,
+  eventVenue,
   type PricingPlan,
 } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
@@ -277,6 +278,11 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                 <p className="mt-1 text-sm text-ink-soft">
                   {formatEventDates(event.date_start, event.date_end)}
                 </p>
+                {eventVenue(event).line && (
+                  <p className="mt-1 text-xs text-ink-soft">
+                    📍 {eventVenue(event).line}
+                  </p>
+                )}
                 <p className="mt-1 text-xs text-ink-soft">
                   Límite de pago:{" "}
                   {new Date(event.payment_deadline + "T00:00:00").toLocaleDateString(
@@ -300,6 +306,9 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
               <p className="mt-1 text-sm text-ink-soft">
                 {selectedEvent.name} ·{" "}
                 {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
+                {eventVenue(selectedEvent).line
+                  ? ` · ${eventVenue(selectedEvent).line}`
+                  : ""}
               </p>
             </div>
             <Character name="gato" size={78} className="hidden shrink-0 sm:block" />

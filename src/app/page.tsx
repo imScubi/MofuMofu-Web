@@ -5,7 +5,8 @@ import {
   EVENT_CONFIG,
   PRICING_PLANS,
   STAND_INCLUDES,
-  venueLine,
+  cityLine,
+  eventVenue,
 } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import { createClient } from "@/lib/supabase/client";
@@ -68,7 +69,7 @@ export default async function Home() {
     (c) => contestAvailability(c).open
   );
 
-  const where = venueLine();
+  const where = cityLine();
   const cheapest = Math.min(...PRICING_PLANS.map((p) => p.price));
   const nextEvent = events[0];
 
@@ -105,7 +106,9 @@ export default async function Home() {
             answer: `La próxima edición es ${nextEvent.name}: ${formatEventDates(
               nextEvent.date_start,
               nextEvent.date_end
-            )}${where ? ` en ${where}` : ""}.`,
+            )}${
+              eventVenue(nextEvent).line ? ` en ${eventVenue(nextEvent).line}` : ""
+            }. La sede puede cambiar entre ediciones, así que confirma aquí antes de ir.`,
           },
         ]
       : []),
@@ -192,6 +195,23 @@ export default async function Home() {
                   <p className="mt-1.5 font-heading text-lg font-bold text-ink">
                     {event.name}
                   </p>
+                  {eventVenue(event).line && (
+                    <p className="mt-1.5 text-[13.5px] leading-[1.55] text-ink-soft">
+                      📍{" "}
+                      {eventVenue(event).mapsUrl ? (
+                        <a
+                          href={eventVenue(event).mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-pink-700 underline underline-offset-2"
+                        >
+                          {eventVenue(event).line}
+                        </a>
+                      ) : (
+                        eventVenue(event).line
+                      )}
+                    </p>
+                  )}
                   <p className="mt-2 text-[13.5px] leading-[1.55] text-ink-soft">
                     Límite de pago:{" "}
                     <span className="font-semibold text-amber-500">
@@ -289,7 +309,8 @@ export default async function Home() {
             reúnen expositores independientes de ropa y accesorios, arte e
             ilustración, manualidades, papelería y stickers, juguetes y
             coleccionables, belleza y comida, en un ambiente pensado para pasar
-            el día entre cosas bonitas.
+            el día entre cosas bonitas. La sede puede cambiar de una edición a
+            otra, así que la dirección de cada fecha se publica aquí arriba.
           </p>
           <p className="mt-3 text-[15.5px] leading-[1.7] text-ink-soft">
             Además de los stands hay concursos y dinámicas: dance cover,
@@ -300,7 +321,7 @@ export default async function Home() {
             <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-[15px] leading-[1.6] text-ink">
               <strong>Próxima edición:</strong> {nextEvent.name} ·{" "}
               {formatEventDates(nextEvent.date_start, nextEvent.date_end)}
-              {where ? ` · ${where}` : ""}
+              {eventVenue(nextEvent).line ? ` · ${eventVenue(nextEvent).line}` : ""}
             </p>
           )}
 

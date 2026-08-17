@@ -9,6 +9,10 @@ export interface EventRow {
   payment_deadline: string;
   restricted_giros_enabled: boolean;
   is_open: boolean;
+  /** Sede de esta edición; null = la sede por defecto de eventConfig. */
+  venue_name: string | null;
+  venue_city: string | null;
+  venue_maps_url: string | null;
   created_at: string;
 }
 

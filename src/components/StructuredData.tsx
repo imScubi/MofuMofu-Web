@@ -1,4 +1,4 @@
-import { EVENT_CONFIG, VENUE, venueLine } from "@/lib/eventConfig";
+import { EVENT_CONFIG, VENUE, eventVenue } from "@/lib/eventConfig";
 import { SITE_URL, absoluteUrl } from "@/lib/site";
 import type { EventRow } from "@/lib/types";
 
@@ -39,34 +39,36 @@ export function StructuredData({ events, faqs = [] }: StructuredDataProps) {
     publisher: { "@id": `${SITE_URL}/#organization` },
   };
 
-  // Sin ciudad, un Event sin lugar es un dato incompleto que Google
-  // descarta: mejor no publicarlo hasta que VENUE esté lleno.
-  const eventNodes = VENUE.city
-    ? events.map((event) => ({
-        "@type": "Event",
-        name: `${EVENT_CONFIG.name} — ${event.name}`,
-        startDate: event.date_start,
-        endDate: event.date_end,
-        eventStatus: "https://schema.org/EventScheduled",
-        eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-        image: [absoluteUrl("/opengraph-image.png")],
-        description: `Edición de ${EVENT_CONFIG.name} en ${venueLine()}: expositores independientes, comida, concursos y dinámicas.`,
-        url: SITE_URL,
-        organizer: { "@id": `${SITE_URL}/#organization` },
-        location: {
-          "@type": "Place",
-          name: VENUE.name || venueLine(),
-          ...(VENUE.mapsUrl && { hasMap: VENUE.mapsUrl }),
-          address: {
-            "@type": "PostalAddress",
-            ...(VENUE.street && { streetAddress: VENUE.street }),
-            addressLocality: VENUE.city,
-            ...(VENUE.state && { addressRegion: VENUE.state }),
-            addressCountry: VENUE.country,
-          },
+  // Cada edición publica su propia sede. Un Event sin lugar es un dato
+  // incompleto que Google descarta, así que las ediciones sin ciudad
+  // (ni propia ni por defecto) se quedan fuera.
+  const eventNodes = events
+    .map((event) => ({ event, venue: eventVenue(event) }))
+    .filter(({ venue }) => Boolean(venue.city))
+    .map(({ event, venue }) => ({
+      "@type": "Event",
+      name: `${EVENT_CONFIG.name} — ${event.name}`,
+      startDate: event.date_start,
+      endDate: event.date_end,
+      eventStatus: "https://schema.org/EventScheduled",
+      eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+      image: [absoluteUrl("/opengraph-image.png")],
+      description: `Edición de ${EVENT_CONFIG.name} en ${venue.line}: expositores independientes, comida, concursos y dinámicas.`,
+      url: SITE_URL,
+      organizer: { "@id": `${SITE_URL}/#organization` },
+      location: {
+        "@type": "Place",
+        name: venue.name || venue.line,
+        ...(venue.mapsUrl && { hasMap: venue.mapsUrl }),
+        address: {
+          "@type": "PostalAddress",
+          ...(VENUE.street && { streetAddress: VENUE.street }),
+          addressLocality: venue.city,
+          ...(venue.state && { addressRegion: venue.state }),
+          addressCountry: VENUE.country,
         },
-      }))
-    : [];
+      },
+    }));
 
   const faqNode =
     faqs.length > 0

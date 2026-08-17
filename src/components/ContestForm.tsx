@@ -20,6 +20,7 @@ import {
   inputClass,
   labelClass,
 } from "@/lib/formClasses";
+import { eventVenue } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { ContestRow, EventRow } from "@/lib/types";
 
@@ -195,6 +196,7 @@ export function ContestForm({ contest, event }: ContestFormProps) {
             </h1>
             <p className="mt-1.5 text-[14.5px] leading-[1.6] text-ink-soft">
               {event.name} · {formatEventDates(event.date_start, event.date_end)}
+              {eventVenue(event).line ? ` · ${eventVenue(event).line}` : ""}
             </p>
           </div>
           <Character name={host} size={92} className="shrink-0" priority />
