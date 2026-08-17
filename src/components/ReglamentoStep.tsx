@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { Character } from "@/components/ui/Character";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { REGLAMENTO, RESTRICTED_GIROS, STAFF_CONTACTS } from "@/lib/reglamento";
 
@@ -47,14 +48,17 @@ export function ReglamentoStep({
 
   return (
     <Card className="mt-6 space-y-5 p-5 sm:p-8">
-      <div>
-        <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
-          Reglamento para expositores
-        </h2>
-        <p className="mt-1.5 text-[13.5px] leading-[1.55] text-ink-soft">
-          Léelo completo antes de continuar. Al aceptarlo quedas de acuerdo con
-          todas sus disposiciones.
-        </p>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
+            Reglamento para expositores
+          </h2>
+          <p className="mt-1.5 text-[13.5px] leading-[1.55] text-ink-soft">
+            Léelo completo antes de continuar. Al aceptarlo quedas de acuerdo con
+            todas sus disposiciones.
+          </p>
+        </div>
+        <Character name="camaleon" size={78} className="hidden shrink-0 sm:block" />
       </div>
 
       <div>

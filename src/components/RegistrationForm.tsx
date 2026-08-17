@@ -7,6 +7,7 @@ import { ReglamentoStep } from "@/components/ReglamentoStep";
 import { ConfirmationTicket } from "@/components/ConfirmationTicket";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Character } from "@/components/ui/Character";
 import { Checkbox } from "@/components/ui/Checkbox";
 import {
   BUSINESS_CATEGORIES,
@@ -253,12 +254,17 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
       {step === "event" && (
         <Card className="mt-6 p-6">
-          <h2 className="font-heading text-xl font-bold text-ink">
-            Elige la edición del evento
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Cada edición tiene sus propias fechas y su propio mapa de stands.
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-heading text-xl font-bold text-ink">
+                Elige la edición del evento
+              </h2>
+              <p className="mt-1 text-sm text-ink-soft">
+                Cada edición tiene sus propias fechas y su propio mapa de stands.
+              </p>
+            </div>
+            <Character name="camaleon" size={74} className="hidden shrink-0 sm:block" />
+          </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {events.map((event) => (
               <button
@@ -286,13 +292,18 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
       {step === "map" && selectedEvent && (
         <Card className="mt-6 p-6">
-          <h2 className="font-heading text-xl font-bold text-ink">
-            Elige tu stand en el mapa
-          </h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            {selectedEvent.name} ·{" "}
-            {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-heading text-xl font-bold text-ink">
+                Elige tu stand en el mapa
+              </h2>
+              <p className="mt-1 text-sm text-ink-soft">
+                {selectedEvent.name} ·{" "}
+                {formatEventDates(selectedEvent.date_start, selectedEvent.date_end)}
+              </p>
+            </div>
+            <Character name="gato" size={78} className="hidden shrink-0 sm:block" />
+          </div>
           <p className="mt-1 text-sm text-ink-soft">
             Toca un espacio disponible (verde menta) para seleccionarlo.
           </p>
@@ -363,9 +374,12 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
         <form onSubmit={handleSubmit}>
           <div className={step === "info" ? "" : "hidden"}>
             <Card className="mt-6 space-y-5 p-6">
-              <h2 className="font-heading text-xl font-bold text-ink">
-                Cuéntanos de tu negocio
-              </h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="font-heading text-xl font-bold text-ink">
+                  Cuéntanos de tu negocio
+                </h2>
+                <Character name="raton" size={74} className="hidden shrink-0 sm:block" />
+              </div>
 
               <Field
                 label="Nombre del negocio"
@@ -531,9 +545,12 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
 
           <div className={step === "payment" ? "" : "hidden"}>
             <Card tone="pago" className="mt-6 space-y-5 p-5 sm:p-8">
-              <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
-                Confirma tu pago
-              </h2>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
+                  Confirma tu pago
+                </h2>
+                <Character name="conejita" size={76} className="hidden shrink-0 sm:block" />
+              </div>
 
               <div className="grid gap-4 sm:grid-cols-[1.1fr_1fr]">
                 {/* El monto es lo primero y lo más grande: nadie debe

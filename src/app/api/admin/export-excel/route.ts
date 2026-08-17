@@ -8,6 +8,8 @@ import type {
   EventRow,
   EventStandRow,
   RegistrationRow,
+  SurveyResponseRow,
+  SurveyRow,
 } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -43,6 +45,8 @@ export async function GET(request: Request) {
     { data: registrationsData },
     { data: contestsData },
     { data: entriesData },
+    { data: surveysData },
+    { data: surveyResponsesData },
   ] = await Promise.all([
     supabase.from("event_stands").select("*").eq("event_id", event.id).order("stand_id"),
     supabase
@@ -56,6 +60,12 @@ export async function GET(request: Request) {
       .select("*")
       .eq("event_id", event.id)
       .order("created_at"),
+    supabase.from("surveys").select("*").eq("event_id", event.id).order("created_at"),
+    supabase
+      .from("survey_responses")
+      .select("*")
+      .eq("event_id", event.id)
+      .order("created_at"),
   ]);
 
   const workbook = await buildEventWorkbook({
@@ -64,6 +74,8 @@ export async function GET(request: Request) {
     registrations: (registrationsData as RegistrationRow[]) ?? [],
     contests: (contestsData as ContestRow[]) ?? [],
     contestEntries: (entriesData as ContestEntryRow[]) ?? [],
+    surveys: (surveysData as SurveyRow[]) ?? [],
+    surveyResponses: (surveyResponsesData as SurveyResponseRow[]) ?? [],
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

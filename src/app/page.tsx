@@ -7,6 +7,7 @@ import { contestAvailability } from "@/lib/contestStatus";
 import { getContestType } from "@/lib/contestTypes";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Character } from "@/components/ui/Character";
 import {
   FlowerShape,
   HeartShape,
@@ -196,7 +197,11 @@ export default async function Home() {
 
       <section className="px-5 py-14 sm:py-20">
         <div className="mx-auto max-w-5xl">
-          <h2 className="text-center font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
+          <div className="flex items-end justify-center gap-3">
+            <Character name="camaleon" size={92} />
+            <Character name="raton" size={104} />
+          </div>
+          <h2 className="mt-1 text-center font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
             Cómo funciona
           </h2>
           <div className="mt-5 grid gap-4 sm:grid-cols-3 sm:gap-5">
@@ -222,7 +227,8 @@ export default async function Home() {
 
       <section className="px-5 pb-20">
         <Card className="mx-auto max-w-3xl border-lavender-300 bg-lavender-100/60 p-8 text-center">
-          <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
+          <Character name="conejita" size={112} className="mx-auto" />
+          <h2 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¿Dudas sobre tu registro?
           </h2>
           <p className="mt-2 text-base leading-[1.65] text-ink-soft">

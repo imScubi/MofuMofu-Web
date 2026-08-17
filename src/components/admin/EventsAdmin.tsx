@@ -221,6 +221,12 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
                   Convocatorias
                 </Button>
               </Link>
+
+              <Link href={`/admin/dashboard/encuestas?event=${event.id}`}>
+                <Button variant="ghost" className="!px-4 !py-1.5 text-xs">
+                  Encuestas
+                </Button>
+              </Link>
             </div>
           </Card>
         ))}

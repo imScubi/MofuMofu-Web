@@ -89,3 +89,26 @@ export interface ContestEntryRow {
   created_at: string;
   updated_at: string;
 }
+
+/** Una encuesta de retroalimentación de una edición. */
+export interface SurveyRow {
+  id: string;
+  event_id: string;
+  template: string;
+  title: string;
+  intro: string | null;
+  /** Lo que va en /encuesta/<token>. */
+  public_token: string;
+  is_open: boolean;
+  responses_count: number;
+  created_at: string;
+}
+
+export interface SurveyResponseRow {
+  id: string;
+  survey_id: string;
+  event_id: string;
+  /** Respuestas por id de pregunta. Anónimas: no hay datos de contacto. */
+  answers: Record<string, string>;
+  created_at: string;
+}

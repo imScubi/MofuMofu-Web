@@ -2,12 +2,15 @@ import ExcelJS from "exceljs";
 import { EVENT_CONFIG, PRICING_PLANS } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
 import { getContestType } from "@/lib/contestTypes";
+import { getSurveyTemplate } from "@/lib/surveyTemplates";
 import type {
   ContestEntryRow,
   ContestRow,
   EventRow,
   EventStandRow,
   RegistrationRow,
+  SurveyResponseRow,
+  SurveyRow,
 } from "@/lib/types";
 
 const REG_STATUS_LABEL: Record<string, string> = {
@@ -61,6 +64,8 @@ export interface EventWorkbookData {
   registrations: RegistrationRow[];
   contests: ContestRow[];
   contestEntries: ContestEntryRow[];
+  surveys: SurveyRow[];
+  surveyResponses: SurveyResponseRow[];
 }
 
 /**
@@ -77,6 +82,8 @@ export async function buildEventWorkbook({
   registrations,
   contests,
   contestEntries,
+  surveys,
+  surveyResponses,
 }: EventWorkbookData): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = EVENT_CONFIG.name;
@@ -241,6 +248,51 @@ export async function buildEventWorkbook({
   });
 
   // ---------------------------------------------------------------
+  // Una hoja por encuesta: una fila por respuesta, una columna por
+  // pregunta. Las calificaciones se escriben como número (no como
+  // texto) para que el promedio del resumen sea una fórmula de verdad.
+  // ---------------------------------------------------------------
+  const surveySheets = surveys.map((survey) => {
+    const template = getSurveyTemplate(survey.template);
+    const sheetName = safeSheetName(survey.title, usedSheetNames);
+    const sheet = workbook.addWorksheet(sheetName);
+
+    sheet.columns = [
+      { header: "Fecha", key: "createdAt", width: 20 },
+      ...template.questions.map((question) => ({
+        header: question.label,
+        key: `q_${question.id}`,
+        width: question.type === "text" ? 46 : 18,
+      })),
+    ];
+    sheet.getRow(1).font = { bold: true };
+    sheet.getRow(1).alignment = { wrapText: true, vertical: "top" };
+
+    const rows = surveyResponses.filter((r) => r.survey_id === survey.id);
+    rows.forEach((response) => {
+      const values: Record<string, string | number | Date> = {
+        createdAt: new Date(response.created_at),
+      };
+      for (const question of template.questions) {
+        const raw = response.answers?.[question.id] ?? "";
+        values[`q_${question.id}`] =
+          question.type === "scale" && raw !== "" ? Number(raw) : raw;
+      }
+      const row = sheet.addRow(values);
+      row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
+    });
+
+    return {
+      survey,
+      template,
+      sheetName,
+      lastRow: Math.max(rows.length + 1, 2),
+      letterOf: (questionId: string) => sheet.getColumn(`q_${questionId}`).letter,
+      dateLetter: sheet.getColumn("createdAt").letter,
+    };
+  });
+
+  // ---------------------------------------------------------------
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores
   // ---------------------------------------------------------------
   const summary = workbook.addWorksheet("Resumen");
@@ -388,6 +440,38 @@ export async function buildEventWorkbook({
       }
       summary.getCell(`E${r}`).value = { formula: `COUNTIF(${entryStatusRange},"Aceptado")` };
       r++;
+    });
+  }
+
+  // ---------------------------------------------------------------
+  // Encuestas: cuántas respuestas y el promedio de cada calificación.
+  // ---------------------------------------------------------------
+  if (surveySheets.length > 0) {
+    r += 2;
+    summary.getCell(`A${r}`).value = "Encuestas de retroalimentación";
+    summary.getCell(`A${r}`).font = { bold: true };
+    r++;
+
+    surveySheets.forEach(({ survey, template, sheetName, lastRow, letterOf, dateLetter }) => {
+      summary.getCell(`A${r}`).value = survey.title;
+      summary.getCell(`A${r}`).font = { bold: true };
+      summary.getCell(`B${r}`).value = {
+        formula: `COUNTA('${sheetName}'!${dateLetter}2:${dateLetter}${lastRow})`,
+      };
+      summary.getCell(`C${r}`).value = "respuestas";
+      r++;
+
+      template.questions
+        .filter((q) => q.type === "scale")
+        .forEach((question) => {
+          const letter = letterOf(question.id);
+          summary.getCell(`A${r}`).value = `   Promedio — ${question.label}`;
+          summary.getCell(`B${r}`).value = {
+            formula: `IFERROR(AVERAGE('${sheetName}'!${letter}2:${letter}${lastRow}),"")`,
+          };
+          summary.getCell(`B${r}`).numFmt = "0.00";
+          r++;
+        });
     });
   }
 

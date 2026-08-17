@@ -1,5 +1,6 @@
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { Card } from "@/components/ui/Card";
+import { Character } from "@/components/ui/Character";
 import { FlowerShape } from "@/components/ui/Decorations";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
@@ -22,7 +23,8 @@ export default async function RegistroPage() {
     return (
       <main className="flex-1 px-4 py-16">
         <Card className="mx-auto max-w-lg p-8 text-center">
-          <FlowerShape className="mx-auto h-10 w-10" />
+          <Character name="camaleon" size={116} className="mx-auto" />
+          <FlowerShape className="mx-auto mt-1 h-10 w-10" />
           <h1 className="font-heading mt-3 text-2xl font-bold text-ink">
             Aún no hay ediciones abiertas
           </h1>
@@ -59,7 +61,8 @@ export default async function RegistroPage() {
   return (
     <main className="flex-1 px-4 py-10 sm:py-14">
       <div className="mx-auto mb-8 max-w-3xl text-center">
-        <h1 className="font-heading text-3xl font-bold text-ink">
+        <Character name="raton" size={124} className="mx-auto" priority />
+        <h1 className="mt-1 font-heading text-3xl font-bold text-ink">
           Registro de expositores
         </h1>
         <p className="mt-2 text-ink-soft">Sigue estos pasos para apartar tu lugar</p>

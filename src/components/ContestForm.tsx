@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Character, type CharacterName } from "@/components/ui/Character";
 import {
   cleanAnswers,
   getContestType,
@@ -31,8 +32,18 @@ interface ContestFormProps {
 // campo condicionado que se oculta con la condición apagada haría que el
 // navegador bloqueara el envío sin decir por qué.
 
+// Cada convocatoria tiene su anfitrión, para que las cuatro no se sientan
+// el mismo formulario con distinto título.
+const HOST_BY_TYPE: Record<string, CharacterName> = {
+  dance_cover: "gato",
+  cosplay: "conejita",
+  tcg: "camaleon",
+  otro: "raton",
+};
+
 export function ContestForm({ contest, event }: ContestFormProps) {
   const type = getContestType(contest.type);
+  const host = HOST_BY_TYPE[type.id] ?? "raton";
   const availability = contestAvailability(contest);
 
   const [participantName, setParticipantName] = useState("");
@@ -138,7 +149,8 @@ export function ContestForm({ contest, event }: ContestFormProps) {
   if (folio != null) {
     return (
       <Card className="mofu-confetti mx-auto max-w-lg p-6 text-center sm:p-8">
-        <h2 className="font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
+        <Character name={host} size={132} className="mx-auto" priority />
+        <h2 className="mt-1 font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
           ¡Quedaste inscrito!
         </h2>
         <p className="mt-2 text-[14.5px] leading-[1.6] text-ink-soft">
@@ -173,15 +185,20 @@ export function ContestForm({ contest, event }: ContestFormProps) {
   return (
     <div className="mx-auto max-w-2xl">
       <Card className="p-6 sm:p-8">
-        <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
-          {type.label}
-        </p>
-        <h1 className="mt-1 font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
-          {contest.name}
-        </h1>
-        <p className="mt-1.5 text-[14.5px] leading-[1.6] text-ink-soft">
-          {event.name} · {formatEventDates(event.date_start, event.date_end)}
-        </p>
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="text-[11.5px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
+              {type.label}
+            </p>
+            <h1 className="mt-1 font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
+              {contest.name}
+            </h1>
+            <p className="mt-1.5 text-[14.5px] leading-[1.6] text-ink-soft">
+              {event.name} · {formatEventDates(event.date_start, event.date_end)}
+            </p>
+          </div>
+          <Character name={host} size={92} className="shrink-0" priority />
+        </div>
         {contest.description && (
           <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-3 text-[14px] leading-[1.55] text-ink-soft">
             {contest.description}

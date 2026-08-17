@@ -3,6 +3,7 @@
 import { ChangeEvent, FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { Character } from "@/components/ui/Character";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import {
   fileInputClass,
@@ -113,8 +114,9 @@ export default function CompletarPagoPage() {
   if (done) {
     return (
       <main className="flex-1 px-4 py-14">
-        <Card className="mx-auto max-w-lg p-8 text-center">
-          <h1 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
+        <Card className="mofu-confetti mx-auto max-w-lg p-8 text-center">
+          <Character name="conejita" size={124} className="mx-auto" />
+          <h1 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¡Pago agregado a tu registro!
           </h1>
           <p className="mt-3 font-mono text-[30px] font-medium leading-none text-pink-700">
@@ -134,7 +136,8 @@ export default function CompletarPagoPage() {
   return (
     <main className="flex-1 px-4 py-14">
       <div className="mx-auto mb-8 max-w-lg text-center">
-        <h1 className="font-heading text-[34px] font-extrabold leading-[1.05] tracking-[-0.01em] text-ink">
+        <Character name="gato" size={120} className="mx-auto" priority />
+        <h1 className="mt-1 font-heading text-[34px] font-extrabold leading-[1.05] tracking-[-0.01em] text-ink">
           Completar mi pago
         </h1>
         <p className="mt-3 text-base leading-[1.65] text-ink-soft">
