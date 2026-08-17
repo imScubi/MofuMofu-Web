@@ -3,6 +3,8 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PRICING_PLANS } from "@/lib/eventConfig";
 import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
+import { LogoUploadError, uploadBusinessLogo } from "@/lib/uploadLogo";
+import { eventDays } from "@/lib/eventDays";
 
 export const runtime = "nodejs";
 
@@ -20,6 +22,11 @@ const schema = z.object({
   otherSocial: z.string().trim().max(200).optional().or(z.literal("")),
   businessCategory: z.string().trim().min(1).max(100),
   productDetails: z.string().trim().min(1).max(300),
+  participationDay: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .optional()
+    .or(z.literal("")),
   needsElectricity: z.enum(["true", "false"]),
   electricityDetails: z.string().trim().max(200).optional().or(z.literal("")),
   needsGas: z.enum(["true", "false"]),
@@ -46,6 +53,7 @@ export async function POST(request: Request) {
     otherSocial: formData.get("otherSocial") || "",
     businessCategory: formData.get("businessCategory"),
     productDetails: formData.get("productDetails"),
+    participationDay: formData.get("participationDay") || "",
     needsElectricity: formData.get("needsElectricity"),
     electricityDetails: formData.get("electricityDetails") || "",
     needsGas: formData.get("needsGas"),
@@ -82,7 +90,7 @@ export async function POST(request: Request) {
   // activados el expositor tuvo que aceptar esa cláusula.
   const { data: eventData } = await supabase
     .from("events")
-    .select("id, is_open, restricted_giros_enabled")
+    .select("id, is_open, restricted_giros_enabled, date_start, date_end")
     .eq("id", payload.eventId)
     .maybeSingle();
 
@@ -102,6 +110,48 @@ export async function POST(request: Request) {
         message:
           "Debes aceptar la cláusula sobre los giros restringidos para completar tu registro.",
       },
+      { status: 400 }
+    );
+  }
+
+  // El día elegido tiene que ser uno de la edición: si no, el plan
+  // logístico acabaría con un expositor en una fecha que no existe.
+  const days = eventDays(eventData.date_start, eventData.date_end);
+  if (payload.participationDay && !days.includes(payload.participationDay)) {
+    return NextResponse.json(
+      { message: "Ese día no es parte de esta edición." },
+      { status: 400 }
+    );
+  }
+  if (!payload.participationDay && plan.days === 1 && days.length > 1) {
+    return NextResponse.json(
+      { message: "Elige el día en el que vas a participar." },
+      { status: 400 }
+    );
+  }
+
+  let logoPath: string | null;
+  try {
+    logoPath = await uploadBusinessLogo(
+      supabase,
+      payload.standId,
+      formData.get("logo") as File | null
+    );
+  } catch (err) {
+    const message =
+      err instanceof LogoUploadError
+        ? err.message === "FILE_TOO_LARGE"
+          ? "El logo pesa más de 4MB. Súbelo más ligero."
+          : "El logo tiene que ser PNG, JPG, WEBP o SVG."
+        : "No pudimos subir tu logo. Intenta de nuevo.";
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("upload logo error", err);
+    return NextResponse.json({ message, detail }, { status: 400 });
+  }
+
+  if (!logoPath) {
+    return NextResponse.json(
+      { message: "Debes subir el logo de tu negocio." },
       { status: 400 }
     );
   }
@@ -153,6 +203,8 @@ export async function POST(request: Request) {
     p_other_social: payload.otherSocial || null,
     p_business_category: payload.businessCategory,
     p_product_details: payload.productDetails,
+    p_logo_path: logoPath,
+    p_participation_day: payload.participationDay || null,
     p_needs_electricity: payload.needsElectricity === "true",
     p_electricity_details: payload.electricityDetails || null,
     p_needs_gas: payload.needsGas === "true",

@@ -3,6 +3,7 @@ import { EVENT_CONFIG, PRICING_PLANS } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
 import { getContestType } from "@/lib/contestTypes";
 import { getSurveyTemplate } from "@/lib/surveyTemplates";
+import { formatDayShort } from "@/lib/eventDays";
 import type {
   ContestEntryRow,
   ContestRow,
@@ -123,6 +124,7 @@ export async function buildEventWorkbook({
     { header: "TikTok", key: "tiktok", width: 18 },
     { header: "Giro del negocio", key: "category", width: 20 },
     { header: "Qué vende", key: "products", width: 34 },
+    { header: "Día que participa", key: "day", width: 18 },
     { header: "Electricidad", key: "electricity", width: 14 },
     { header: "Detalle electricidad", key: "electricityDetails", width: 24 },
     { header: "Gas", key: "gas", width: 10 },
@@ -159,6 +161,9 @@ export async function buildEventWorkbook({
       tiktok: r.tiktok ?? "",
       category: r.business_category,
       products: r.product_details ?? "",
+      day: r.participation_day
+        ? formatDayShort(r.participation_day)
+        : "Todos los días",
       electricity: r.needs_electricity ? "Sí" : "No",
       electricityDetails: r.electricity_details ?? "",
       gas: r.needs_gas ? "Sí" : "No",

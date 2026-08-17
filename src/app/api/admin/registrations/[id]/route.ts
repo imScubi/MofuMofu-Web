@@ -6,7 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 const schema = z.object({
-  status: z.enum(["pending_review", "approved", "rejected"]),
+  status: z.enum(["pending_review", "approved", "rejected", "cancelled"]),
 });
 
 export async function PATCH(
@@ -44,10 +44,13 @@ export async function PATCH(
     return NextResponse.json({ message: "No se pudo actualizar el registro." }, { status: 500 });
   }
 
+  // Rechazado y cancelado devuelven el lugar al mapa; la diferencia es
+  // que el cancelado ya estaba en el plan logístico y deja un hueco que
+  // el reacomodo puede cerrar.
   const standStatus =
     body.data.status === "approved"
       ? "sold"
-      : body.data.status === "rejected"
+      : body.data.status === "rejected" || body.data.status === "cancelled"
         ? "available"
         : "pending";
 

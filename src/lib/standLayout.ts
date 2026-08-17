@@ -121,3 +121,29 @@ export const STAND_LAYOUT: StandLayoutItem[] = [
 export const RESERVABLE_STAND_IDS = STAND_LAYOUT.filter(
   (s) => s.reservable
 ).map((s) => s.id);
+
+/**
+ * Las filas físicas del plano, en el orden en que se recorren a pie.
+ *
+ * El reacomodo trabaja sobre esto: al cancelar alguien, el hueco se
+ * cierra moviendo un stand de la MISMA fila, porque saltar a otra fila
+ * cambia de zona del parque y deja al expositor en otro lado del que
+ * eligió.
+ */
+export const STAND_ROWS: { id: string; label: string; stands: string[] }[] = [
+  { id: "bottom", label: "Fila inferior", stands: bottomRow.map((s) => s.id) },
+  { id: "right", label: "Curva derecha", stands: rightCurve.map((s) => s.id) },
+  { id: "middle", label: "Fila central", stands: middleRow.map((s) => s.id) },
+  { id: "stand40", label: "Stand 40", stands: stand40.map((s) => s.id) },
+  { id: "top", label: "Fila superior", stands: topRow.map((s) => s.id) },
+];
+
+/** Todos los stands reservables en el orden del plano. */
+export function standsInRowOrder(): string[] {
+  return STAND_ROWS.flatMap((r) => r.stands);
+}
+
+/** La fila a la que pertenece un stand, o null si no está en el plano. */
+export function rowOfStand(standId: string) {
+  return STAND_ROWS.find((r) => r.stands.includes(standId)) ?? null;
+}

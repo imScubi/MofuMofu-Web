@@ -18,6 +18,7 @@ import {
   eventVenue,
   type PricingPlan,
 } from "@/lib/eventConfig";
+import { eventDays, formatDayLong } from "@/lib/eventDays";
 import { formatEventDates } from "@/lib/formatDates";
 import {
   fileInputClass,
@@ -62,6 +63,8 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const [tiktok, setTiktok] = useState("");
   const [businessCategory, setBusinessCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
   const [productDetails, setProductDetails] = useState("");
+  const [logo, setLogo] = useState<File | null>(null);
+  const [participationDay, setParticipationDay] = useState("");
   const [needsElectricity, setNeedsElectricity] = useState(false);
   const [electricityDetails, setElectricityDetails] = useState("");
   const [needsGas, setNeedsGas] = useState(false);
@@ -77,6 +80,14 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const [paymentProof2, setPaymentProof2] = useState<File | null>(null);
 
   const eventStands = selectedEvent ? (standsByEvent[selectedEvent.id] ?? []) : [];
+
+  // Con un plan de un solo día y una edición de varios, hay que saber
+  // cuál: el plan logístico del evento se arma por día y el mismo stand
+  // puede tener otro negocio al día siguiente.
+  const days = selectedEvent
+    ? eventDays(selectedEvent.date_start, selectedEvent.date_end)
+    : [];
+  const needsDayChoice = Boolean(selectedPlan && selectedPlan.days === 1 && days.length > 1);
 
   // Con una sola edición nunca existe el paso de elegirla: mostrarlo
   // dejaría un paso "completado" al que nadie puede volver.
@@ -96,6 +107,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     setSelectedEvent(event);
     setSelectedStandId(null);
     setSelectedPlan(null);
+    setParticipationDay("");
     setReglamentoAccepted(false);
     setGirosAccepted(false);
     setStep("map");
@@ -108,6 +120,14 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     }
     if (!productDetails.trim()) {
       setInfoError("Describe qué productos vas a vender en tu stand.");
+      return;
+    }
+    if (!logo) {
+      setInfoError("Sube el logo de tu negocio.");
+      return;
+    }
+    if (needsDayChoice && !participationDay) {
+      setInfoError("Elige el día en el que vas a participar.");
       return;
     }
     if (needsElectricity && !electricityDetails.trim()) {
@@ -164,6 +184,8 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     formData.set("tiktok", tiktok.trim());
     formData.set("businessCategory", businessCategory);
     formData.set("productDetails", productDetails.trim());
+    formData.set("participationDay", participationDay);
+    if (logo) formData.set("logo", logo);
     formData.set("needsElectricity", String(needsElectricity));
     formData.set("electricityDetails", electricityDetails.trim());
     formData.set("needsGas", String(needsGas));
@@ -475,6 +497,64 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                   hayas elegido una categoría arriba.
                 </p>
               </div>
+
+              {/* El logo va al plan logístico y al mapa que recibe la
+                  sede: con logo, el staff ubica cada stand de un vistazo
+                  en vez de leer 40 nombres. */}
+              <div>
+                <label className={labelClass} htmlFor="logo">
+                  Logo de tu negocio<span className="text-pink-600"> *</span>
+                </label>
+                <input
+                  id="logo"
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                  onChange={handleFileChange(setLogo)}
+                  className={fileInputClass}
+                />
+                <p className={helpClass}>
+                  PNG, JPG, WEBP o SVG, máximo 4MB. Se usa en el mapa del
+                  evento y en tu espacio, para identificar tu stand.
+                </p>
+                {logo && (
+                  <p className="mt-1.5 text-[13px] font-semibold text-mint-500">
+                    Listo: {logo.name}
+                  </p>
+                )}
+              </div>
+
+              {needsDayChoice && (
+                <div>
+                  <label className={labelClass}>
+                    ¿Qué día vas a participar?
+                    <span className="text-pink-600"> *</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2.5">
+                    {days.map((day) => {
+                      const selected = participationDay === day;
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => setParticipationDay(day)}
+                          aria-pressed={selected}
+                          className={`min-h-[44px] rounded-full border-2 px-5 text-[15px] font-bold transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300/60 ${
+                            selected
+                              ? "border-pink-600 bg-pink-500 text-white shadow-[0_2px_0_0_var(--color-pink-700)]"
+                              : "border-pink-100 bg-white text-ink-soft hover:border-pink-300"
+                          }`}
+                        >
+                          {formatDayLong(day)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className={helpClass}>
+                    Tu plan es de un día. Elige cuál para acomodarte en el mapa
+                    de ese día.
+                  </p>
+                </div>
+              )}
 
               <div>
                 <Checkbox

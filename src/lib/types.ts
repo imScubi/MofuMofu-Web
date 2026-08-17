@@ -24,7 +24,12 @@ export interface EventStandRow {
   updated_at: string;
 }
 
-export type RegistrationStatus = "pending_review" | "approved" | "rejected";
+export type RegistrationStatus =
+  | "pending_review"
+  | "approved"
+  | "rejected"
+  /** Ya estaba en el plan y se dio de baja: deja un hueco que reacomodar. */
+  | "cancelled";
 
 export interface RegistrationRow {
   id: string;
@@ -56,6 +61,10 @@ export interface RegistrationRow {
   reglamento_accepted: boolean;
   reglamento_accepted_at: string | null;
   restricted_giros_accepted: boolean;
+  /** Logo del negocio en el bucket público; null en registros viejos. */
+  logo_path: string | null;
+  /** Día que participa; null = todos los días de la edición. */
+  participation_day: string | null;
   status: RegistrationStatus;
   admin_notes: string | null;
   created_at: string;
@@ -88,7 +97,7 @@ export interface ContestEntryRow {
   email: string | null;
   /** Respuestas propias del tipo de convocatoria. */
   answers: Record<string, string>;
-  status: RegistrationStatus;
+  status: ContestEntryStatus;
   admin_notes: string | null;
   created_at: string;
   updated_at: string;
@@ -114,5 +123,24 @@ export interface SurveyResponseRow {
   event_id: string;
   /** Respuestas por id de pregunta. Anónimas: no hay datos de contacto. */
   answers: Record<string, string>;
+  created_at: string;
+}
+
+/**
+ * Estatus de una inscripción a concurso. No tiene "cancelled": ahí no
+ * hay plan logístico que reacomodar, sólo se acepta o se rechaza.
+ */
+export type ContestEntryStatus = "pending_review" | "approved" | "rejected";
+
+/** Un bloque del cronograma o del itinerario de una edición. */
+export interface EventScheduleRow {
+  id: string;
+  event_id: string;
+  day: string;
+  start_time: string;
+  end_time: string | null;
+  title: string;
+  notes: string | null;
+  kind: "montaje" | "actividad";
   created_at: string;
 }

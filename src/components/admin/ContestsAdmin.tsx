@@ -11,9 +11,9 @@ import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type {
   ContestEntryRow,
+  ContestEntryStatus,
   ContestRow,
   EventRow,
-  RegistrationStatus,
 } from "@/lib/types";
 
 interface ContestsAdminProps {
@@ -23,13 +23,13 @@ interface ContestsAdminProps {
   initialEntries: ContestEntryRow[];
 }
 
-const STATUS_LABEL: Record<RegistrationStatus, string> = {
+const STATUS_LABEL: Record<ContestEntryStatus, string> = {
   pending_review: "En revisión",
   approved: "Aceptado",
   rejected: "Rechazado",
 };
 
-const STATUS_BADGE: Record<RegistrationStatus, string> = {
+const STATUS_BADGE: Record<ContestEntryStatus, string> = {
   pending_review: "bg-amber-100 text-amber-500",
   approved: "bg-mint-100 text-mint-500",
   rejected: "bg-danger-50 text-danger-600",
@@ -161,7 +161,7 @@ export function ContestsAdmin({
     }
   }
 
-  async function updateEntryStatus(id: string, status: RegistrationStatus) {
+  async function updateEntryStatus(id: string, status: ContestEntryStatus) {
     setBusyId(id);
     try {
       const res = await fetch(`/api/admin/contest-entries/${id}`, {

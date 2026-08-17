@@ -129,3 +129,46 @@ h1, h2, h3, h4, .font-heading {
 @media (prefers-reduced-motion: reduce) {
   .mofu-float { animation: none; }
 }
+
+/* ---------------------------------------------------------------
+   Impresión del plan logístico
+   Lo que no es el documento se va, cada día empieza en hoja nueva y
+   los colores se conservan (por defecto el navegador los quita).
+   --------------------------------------------------------------- */
+@media print {
+  .mofu-no-print {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+  }
+
+  .mofu-plan {
+    max-width: none;
+    font-size: 11pt;
+  }
+
+  .mofu-plan-page {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .mofu-plan table {
+    break-inside: auto;
+  }
+
+  .mofu-plan tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .mofu-float {
+    animation: none;
+  }
+
+  * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

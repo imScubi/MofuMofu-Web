@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
+import { formatDayShort } from "@/lib/eventDays";
+import { logoPublicUrl } from "@/lib/logoUrl";
 import type {
   EventRow,
   EventStandRow,
@@ -26,12 +28,14 @@ const STATUS_LABEL: Record<RegistrationStatus, string> = {
   pending_review: "En revisión",
   approved: "Aprobado",
   rejected: "Rechazado",
+  cancelled: "Cancelado",
 };
 
 const STATUS_BADGE: Record<RegistrationStatus, string> = {
   pending_review: "bg-amber-100 text-amber-500",
   approved: "bg-mint-100 text-mint-500",
   rejected: "bg-danger-50 text-danger-600",
+  cancelled: "bg-gray-200 text-ink-soft",
 };
 
 const FILTERS: { key: "all" | RegistrationStatus; label: string }[] = [
@@ -39,6 +43,7 @@ const FILTERS: { key: "all" | RegistrationStatus; label: string }[] = [
   { key: "pending_review", label: "En revisión" },
   { key: "approved", label: "Aprobados" },
   { key: "rejected", label: "Rechazados" },
+  { key: "cancelled", label: "Cancelados" },
 ];
 
 export function AdminDashboard({
@@ -148,7 +153,12 @@ export function AdminDashboard({
         );
         const reg = registrations.find((r) => r.id === id);
         if (reg) {
-          const standStatus = status === "approved" ? "sold" : status === "rejected" ? "available" : "pending";
+          const standStatus =
+            status === "approved"
+              ? "sold"
+              : status === "rejected" || status === "cancelled"
+                ? "available"
+                : "pending";
           setStands((prev) =>
             prev.map((s) =>
               s.stand_id === reg.stand_id ? { ...s, status: standStatus } : s
@@ -230,6 +240,9 @@ export function AdminDashboard({
           <Link href={`/admin/dashboard/encuestas?event=${selectedEvent.id}`}>
             <Button variant="ghost">Encuestas 📊</Button>
           </Link>
+          <Link href={`/admin/dashboard/plan?event=${selectedEvent.id}`}>
+            <Button variant="ghost">Plan logístico 📋</Button>
+          </Link>
           <a href={`/api/admin/export-excel?event=${selectedEvent.id}`}>
             <Button variant="secondary">Descargar Excel</Button>
           </a>
@@ -287,6 +300,7 @@ export function AdminDashboard({
               <Th>Folio</Th>
               <Th>Stand</Th>
               <Th>Negocio</Th>
+              <Th>Día</Th>
               <Th>Contacto</Th>
               <Th>Plan</Th>
               <Th>Categoría</Th>
@@ -301,7 +315,26 @@ export function AdminDashboard({
               <tr key={r.id} className="border-b border-pink-50 last:border-0">
                 <Td className="font-mono font-medium text-pink-700">#{r.folio_number}</Td>
                 <Td className="font-semibold">#{r.stand_id}</Td>
-                <Td>{r.business_name}</Td>
+                <Td>
+                  <div className="flex items-center gap-2">
+                    {logoPublicUrl(r.logo_path) ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={logoPublicUrl(r.logo_path)!}
+                        alt=""
+                        className="h-9 w-9 shrink-0 rounded-lg border border-pink-100 bg-white object-contain"
+                      />
+                    ) : (
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-pink-100 text-[10px] text-ink-soft">
+                        sin
+                      </span>
+                    )}
+                    <span>{r.business_name}</span>
+                  </div>
+                </Td>
+                <Td className="whitespace-nowrap text-xs text-ink-soft">
+                  {r.participation_day ? formatDayShort(r.participation_day) : "Todos"}
+                </Td>
                 <Td>
                   <div>{r.contact_name}</div>
                   <div className="text-xs text-ink-soft">{r.phone}</div>
@@ -401,6 +434,18 @@ export function AdminDashboard({
                         className="!px-3 !py-1 text-xs"
                       >
                         Rechazar
+                      </Button>
+                      {/* Cancelar es para quien ya estaba dentro y se
+                          da de baja: libera el stand y deja el registro
+                          en el historial para el reacomodo. */}
+                      <Button
+                        size="md"
+                        variant="ghost"
+                        disabled={busyId === r.id || r.status === "cancelled"}
+                        onClick={() => updateStatus(r.id, "cancelled")}
+                        className="!px-3 !py-1 text-xs"
+                      >
+                        Dar de baja
                       </Button>
                       <button
                         type="button"
