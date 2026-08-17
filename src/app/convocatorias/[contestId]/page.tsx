@@ -1,12 +1,44 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ContestForm } from "@/components/ContestForm";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { createClient } from "@/lib/supabase/client";
+import { EVENT_CONFIG } from "@/lib/eventConfig";
 import type { ContestRow, EventRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Cada convocatoria tiene su propio título y descripción, para que
+ * "concurso de cosplay MofuMofu" caiga en la página del concurso y no en
+ * la portada.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ contestId: string }>;
+}): Promise<Metadata> {
+  const { contestId } = await params;
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("contests")
+    .select("*")
+    .eq("id", contestId)
+    .maybeSingle();
+
+  const contest = data as ContestRow | null;
+  if (!contest) return { title: "Convocatoria no encontrada" };
+
+  return {
+    title: contest.name,
+    description:
+      contest.description ||
+      `Inscríbete en ${contest.name} de ${EVENT_CONFIG.name}. Cupo limitado.`,
+    alternates: { canonical: `/convocatorias/${contest.id}` },
+  };
+}
 
 export default async function ConvocatoriaPage({
   params,

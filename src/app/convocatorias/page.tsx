@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +12,12 @@ import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { ContestRow, EventRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Convocatorias: cosplay, dance cover y torneos",
+  description: `Inscríbete en los concursos de ${EVENT_CONFIG.name}: concurso de cosplay, dance cover y torneos de cartas coleccionables.`,
+  alternates: { canonical: "/convocatorias" },
+};
 
 export default async function ConvocatoriasPage() {
   const supabase = createClient();

@@ -1,6 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { EVENT_CONFIG } from "@/lib/eventConfig";
+import { StructuredData } from "@/components/StructuredData";
+import {
+  EVENT_CONFIG,
+  PRICING_PLANS,
+  STAND_INCLUDES,
+  venueLine,
+} from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import { createClient } from "@/lib/supabase/client";
 import { contestAvailability } from "@/lib/contestStatus";
@@ -62,8 +68,52 @@ export default async function Home() {
     (c) => contestAvailability(c).open
   );
 
+  const where = venueLine();
+  const cheapest = Math.min(...PRICING_PLANS.map((p) => p.price));
+  const nextEvent = events[0];
+
+  // Las respuestas que la gente escribe en Google. Se muestran en la
+  // página y las mismas se le entregan al buscador como datos: si sólo
+  // estuvieran en el código serían una mentira para el buscador.
+  const faqs = [
+    {
+      question: `¿Qué es ${EVENT_CONFIG.name}?`,
+      answer: `${EVENT_CONFIG.name} es un mercado de estética kawaii${
+        where ? ` que se realiza en ${where}` : ""
+      }. Reúne expositores independientes de ropa, accesorios, arte, ilustración, manualidades, papelería, coleccionables y comida, además de concursos y dinámicas durante el día.`,
+    },
+    {
+      question: "¿Cómo aparto un stand como expositor?",
+      answer:
+        "Desde esta misma página: eliges tu lugar en el mapa interactivo, escoges tu plan, llenas los datos de tu negocio, aceptas el reglamento y subes la captura de tu transferencia. Al terminar recibes un folio para dar seguimiento a tu pago.",
+    },
+    {
+      question: "¿Cuánto cuesta participar como expositor?",
+      answer: `Los planes empiezan en $${cheapest.toLocaleString("es-MX")} ${
+        EVENT_CONFIG.currency
+      } e incluyen ${STAND_INCLUDES.join(", ").toLowerCase()}. El precio cambia según si expones uno o dos días, si vendes comida y si compartes el espacio con otro negocio.`,
+    },
+    {
+      question: "¿Puedo participar en los concursos sin ser expositor?",
+      answer:
+        "Sí. Las convocatorias de dance cover, cosplay y torneos de cartas son independientes del registro de expositores: se inscribe cualquier persona desde la sección de convocatorias, mientras haya lugares disponibles.",
+    },
+    ...(nextEvent
+      ? [
+          {
+            question: "¿Cuándo es la próxima edición?",
+            answer: `La próxima edición es ${nextEvent.name}: ${formatEventDates(
+              nextEvent.date_start,
+              nextEvent.date_end
+            )}${where ? ` en ${where}` : ""}.`,
+          },
+        ]
+      : []),
+  ];
+
   return (
     <main className="flex-1">
+      <StructuredData events={events} faqs={faqs} />
       <section className="mofu-confetti relative overflow-hidden px-5 pt-12 pb-14 sm:pt-24 sm:pb-28">
         <div className="relative mx-auto grid max-w-5xl items-center gap-8 sm:grid-cols-[1.15fr_1fr]">
           <div className="text-center sm:text-left">
@@ -225,7 +275,54 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="px-5 pb-20">
+      {/* Texto de verdad sobre el market: es lo que le permite a Google
+          entender de qué trata la página y mostrarla cuando alguien busca
+          el nombre o "bazar kawaii". */}
+      <section className="bg-pink-50/60 px-5 py-14 sm:py-20">
+        <div className="mx-auto max-w-3xl">
+          <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
+            Qué es {EVENT_CONFIG.name}
+          </h2>
+          <p className="mt-3 text-[15.5px] leading-[1.7] text-ink-soft">
+            {EVENT_CONFIG.name} es un mercado de estética kawaii
+            {where ? ` que se realiza en ${where}` : ""}. En cada edición se
+            reúnen expositores independientes de ropa y accesorios, arte e
+            ilustración, manualidades, papelería y stickers, juguetes y
+            coleccionables, belleza y comida, en un ambiente pensado para pasar
+            el día entre cosas bonitas.
+          </p>
+          <p className="mt-3 text-[15.5px] leading-[1.7] text-ink-soft">
+            Además de los stands hay concursos y dinámicas: dance cover,
+            concurso de cosplay y torneos de cartas coleccionables, con
+            convocatorias abiertas a cualquier persona.
+          </p>
+          {nextEvent && (
+            <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-[15px] leading-[1.6] text-ink">
+              <strong>Próxima edición:</strong> {nextEvent.name} ·{" "}
+              {formatEventDates(nextEvent.date_start, nextEvent.date_end)}
+              {where ? ` · ${where}` : ""}
+            </p>
+          )}
+
+          <h2 className="mt-10 font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
+            Preguntas frecuentes
+          </h2>
+          <div className="mt-4 space-y-3">
+            {faqs.map((faq) => (
+              <Card key={faq.question} className="p-5">
+                <h3 className="font-heading text-[16.5px] font-bold leading-[1.35] text-ink">
+                  {faq.question}
+                </h3>
+                <p className="mt-1.5 text-[14.5px] leading-[1.65] text-ink-soft">
+                  {faq.answer}
+                </p>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="px-5 pb-20 pt-14">
         <Card className="mx-auto max-w-3xl border-lavender-300 bg-lavender-100/60 p-8 text-center">
           <Character name="conejita" size={112} className="mx-auto" />
           <h2 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">

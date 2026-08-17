@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { RegistrationForm } from "@/components/RegistrationForm";
 import { Card } from "@/components/ui/Card";
 import { Character } from "@/components/ui/Character";
@@ -7,6 +8,12 @@ import { EVENT_CONFIG } from "@/lib/eventConfig";
 import type { EventRow, EventStandRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Registro de expositores",
+  description: `Aparta tu stand en ${EVENT_CONFIG.name}: elige tu lugar en el mapa, escoge tu plan y sube tu comprobante de pago.`,
+  alternates: { canonical: "/registro" },
+};
 
 export default async function RegistroPage() {
   const supabase = createClient();

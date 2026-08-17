@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SurveyForm } from "@/components/SurveyForm";
@@ -8,6 +9,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import type { EventRow, SurveyRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
+
+// La encuesta se manda por link a quien participó; no tiene por qué
+// aparecer en Google ni recibir respuestas de gente que pasaba por ahí.
+export const metadata: Metadata = {
+  title: "Encuesta de retroalimentación",
+  robots: { index: false, follow: false },
+};
 
 // La encuesta se busca con la service role key desde el servidor: así la
 // tabla no necesita ser legible con la anon key y nadie puede listar los

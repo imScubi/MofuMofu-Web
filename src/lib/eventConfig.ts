@@ -15,7 +15,48 @@ export const EVENT_CONFIG = {
   },
   contactEmail: "mofumofuu.market@gmail.com",
   contactWhatsapp: "8127562745",
+  // Redes oficiales. Google las usa para amarrar la web con las cuentas
+  // del market y mostrarlas juntas cuando alguien busca el nombre.
+  socials: {
+    instagram: "https://www.instagram.com/mofumofuu.market/",
+    facebook: "",
+    tiktok: "",
+  },
 } as const;
+
+// Dónde se hace el evento.
+//
+// LLENA ESTO: mientras "city" esté vacío, la web no le puede decir a
+// Google en qué ciudad es, y una búsqueda como "bazar kawaii en <tu
+// ciudad>" no la va a encontrar. Con estos datos aparece además la
+// ficha del evento con lugar y fechas en los resultados.
+interface Venue {
+  name: string;
+  street: string;
+  city: string;
+  state: string;
+  country: string;
+  mapsUrl: string;
+}
+
+export const VENUE: Venue = {
+  /** Nombre del parque o recinto. Ej. "Parque Fundidora". */
+  name: "",
+  /** Calle y número, si aplica. */
+  street: "",
+  /** Ej. "Monterrey". */
+  city: "",
+  /** Ej. "Nuevo León". */
+  state: "",
+  country: "México",
+  /** Link de Google Maps del lugar, opcional. */
+  mapsUrl: "",
+};
+
+/** "Parque Fundidora, Monterrey, Nuevo León" con lo que esté lleno. */
+export function venueLine(): string {
+  return [VENUE.name, VENUE.city, VENUE.state].filter(Boolean).join(", ");
+}
 
 // Planes de precio para el stand. El expositor elige uno después de
 // seleccionar su lugar en el mapa. El precio y lo que incluye vienen de
