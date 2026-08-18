@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { InlineEdit } from "@/components/admin/InlineEdit";
 import { SurveyResults } from "@/components/admin/SurveyResults";
 import { getSurveyTemplate, SURVEY_TEMPLATES } from "@/lib/surveyTemplates";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
@@ -94,18 +95,23 @@ export function SurveysAdmin({
     }
   }
 
+  /** Lanza si falla, para que la edición en línea pueda revertir. */
   async function patchSurvey(id: string, body: Record<string, unknown>) {
     setBusyId(id);
+    setError(null);
     try {
       const res = await fetch("/api/admin/surveys", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...body }),
       });
-      if (res.ok) {
-        const updated = (await res.json()) as SurveyRow;
-        setSurveys((prev) => prev.map((s) => (s.id === id ? updated : s)));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "No pudimos guardar el cambio.");
+        throw new Error(data.message || "patch failed");
       }
+      const updated = (await res.json()) as SurveyRow;
+      setSurveys((prev) => prev.map((s) => (s.id === id ? updated : s)));
     } finally {
       setBusyId(null);
     }
@@ -231,9 +237,12 @@ export function SurveysAdmin({
                     <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
                       {surveyTemplate.label}
                     </p>
-                    <h3 className="font-heading text-lg font-bold text-ink">
-                      {survey.title}
-                    </h3>
+                    <InlineEdit
+                      ariaLabel={`Título de la encuesta ${survey.title}`}
+                      value={survey.title}
+                      className="-ml-2 font-heading text-lg font-bold text-ink"
+                      onSave={(value) => patchSurvey(survey.id, { title: value })}
+                    />
                     <p className="mt-0.5 text-sm text-ink-soft">
                       {survey.responses_count}{" "}
                       {survey.responses_count === 1 ? "respuesta" : "respuestas"} ·{" "}
@@ -269,6 +278,20 @@ export function SurveysAdmin({
                       {copiedId === survey.id ? "¡Copiado!" : "Copiar link"}
                     </Button>
                   </div>
+                </div>
+
+                <div className="mt-3">
+                  <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.1em] text-ink-soft">
+                    Mensaje de bienvenida
+                  </label>
+                  <InlineEdit
+                    ariaLabel="Mensaje de bienvenida de la encuesta"
+                    value={survey.intro ?? ""}
+                    multiline
+                    placeholder="Lo que lee el expositor antes de contestar"
+                    className="-ml-2 text-[13.5px] leading-[1.6] text-ink-soft"
+                    onSave={(value) => patchSurvey(survey.id, { intro: value })}
+                  />
                 </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">

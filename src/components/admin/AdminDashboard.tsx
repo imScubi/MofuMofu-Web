@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { InlineEdit } from "@/components/admin/InlineEdit";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
 import { formatDayShort } from "@/lib/eventDays";
@@ -171,6 +172,19 @@ export function AdminDashboard({
     }
   }
 
+  /** Lanza si falla, para que la edición en línea revierta y avise. */
+  async function renameRegistration(id: string, businessName: string) {
+    const res = await fetch(`/api/admin/registrations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ businessName }),
+    });
+    if (!res.ok) throw new Error("rename failed");
+    setRegistrations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, business_name: businessName } : r))
+    );
+  }
+
   async function deleteRegistration(id: string) {
     setBusyId(id);
     try {
@@ -329,7 +343,15 @@ export function AdminDashboard({
                         sin
                       </span>
                     )}
-                    <span>{r.business_name}</span>
+                    {/* El nombre del negocio se imprime en el plan de
+                        la sede: una falta de ortografía se corrige aquí
+                        sin tocar el resto del registro. */}
+                    <InlineEdit
+                      ariaLabel={`Nombre del negocio ${r.business_name}`}
+                      value={r.business_name}
+                      className="-ml-2 min-w-[140px] text-sm text-ink"
+                      onSave={(value) => renameRegistration(r.id, value)}
+                    />
                   </div>
                 </Td>
                 <Td className="whitespace-nowrap text-xs text-ink-soft">

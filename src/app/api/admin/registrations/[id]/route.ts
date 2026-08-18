@@ -6,7 +6,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export const runtime = "nodejs";
 
 const schema = z.object({
-  status: z.enum(["pending_review", "approved", "rejected", "cancelled"]),
+  status: z.enum(["pending_review", "approved", "rejected", "cancelled"]).optional(),
+  /** Para corregir una falta de ortografía sin borrar el registro. */
+  businessName: z.string().trim().min(1).max(200).optional(),
 });
 
 export async function PATCH(
@@ -20,7 +22,10 @@ export async function PATCH(
   const { id } = await params;
   const body = schema.safeParse(await request.json().catch(() => ({})));
   if (!body.success) {
-    return NextResponse.json({ message: "Estatus inválido." }, { status: 400 });
+    return NextResponse.json({ message: "Datos inválidos." }, { status: 400 });
+  }
+  if (body.data.status === undefined && body.data.businessName === undefined) {
+    return NextResponse.json({ message: "Nada que actualizar." }, { status: 400 });
   }
 
   const supabase = createAdminClient();
@@ -35,13 +40,23 @@ export async function PATCH(
     return NextResponse.json({ message: "Registro no encontrado." }, { status: 404 });
   }
 
+  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (body.data.status !== undefined) update.status = body.data.status;
+  if (body.data.businessName !== undefined)
+    update.business_name = body.data.businessName;
+
   const { error: updateRegError } = await supabase
     .from("registrations")
-    .update({ status: body.data.status, updated_at: new Date().toISOString() })
+    .update(update)
     .eq("id", id);
 
   if (updateRegError) {
     return NextResponse.json({ message: "No se pudo actualizar el registro." }, { status: 500 });
+  }
+
+  // Sin cambio de estatus no hay nada que hacer con el stand.
+  if (body.data.status === undefined) {
+    return NextResponse.json({ ok: true });
   }
 
   // Rechazado y cancelado devuelven el lugar al mapa; la diferencia es

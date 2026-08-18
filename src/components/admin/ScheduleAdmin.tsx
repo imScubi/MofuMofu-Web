@@ -4,9 +4,9 @@ import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
+import { InlineEdit } from "@/components/admin/InlineEdit";
 import { eventDays, formatDayLong } from "@/lib/eventDays";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
-import { formatTimeRange } from "@/lib/formatTime";
 import type { EventRow, EventScheduleRow } from "@/lib/types";
 
 interface ScheduleAdminProps {
@@ -233,8 +233,26 @@ export function ScheduleAdmin({ event, initialBlocks }: ScheduleAdminProps) {
                 <div className="mt-2 space-y-2">
                   {dayBlocks.map((block) => (
                     <Card key={block.id} className="flex flex-wrap items-center gap-3 p-3">
-                      <span className="w-[132px] shrink-0 font-mono text-[13px] text-pink-700">
-                        {formatTimeRange(block.start_time, block.end_time)}
+                      {/* Las horas también se corrigen aquí: cambiar
+                          una de 6 a 7 no debería obligar a borrar el
+                          bloque y volver a capturarlo. */}
+                      <span className="flex w-[176px] shrink-0 items-center gap-1">
+                        <InlineEdit
+                          ariaLabel={`Hora de inicio de ${block.title}`}
+                          inputType="time"
+                          value={block.start_time.slice(0, 5)}
+                          className="font-mono text-[13px] text-pink-700"
+                          onSave={(value) =>
+                            patchBlock(block.id, { startTime: value })
+                          }
+                        />
+                        <InlineEdit
+                          ariaLabel={`Hora de fin de ${block.title}`}
+                          inputType="time"
+                          value={block.end_time?.slice(0, 5) ?? ""}
+                          className="font-mono text-[13px] text-ink-soft"
+                          onSave={(value) => patchBlock(block.id, { endTime: value })}
+                        />
                       </span>
                       <span
                         className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
@@ -255,11 +273,15 @@ export function ScheduleAdmin({ event, initialBlocks }: ScheduleAdminProps) {
                         }}
                         className="min-w-[180px] flex-1 rounded-xl border-2 border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-ink hover:border-pink-100 focus:border-pink-500 focus:outline-none"
                       />
-                      {block.notes && (
-                        <span className="w-full text-xs text-ink-soft sm:w-auto">
-                          {block.notes}
-                        </span>
-                      )}
+                      <span className="w-full sm:w-[210px]">
+                        <InlineEdit
+                          ariaLabel={`Nota de ${block.title}`}
+                          value={block.notes ?? ""}
+                          placeholder="Nota (opcional)"
+                          className="text-xs text-ink-soft"
+                          onSave={(value) => patchBlock(block.id, { notes: value })}
+                        />
+                      </span>
                       <Button
                         variant="ghost"
                         onClick={() => deleteBlock(block.id)}

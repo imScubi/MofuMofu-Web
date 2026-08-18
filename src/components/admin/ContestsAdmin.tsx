@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CONTEST_TYPES, getContestType, type ContestTypeId } from "@/lib/contestTypes";
 import { contestAvailability } from "@/lib/contestStatus";
+import { InlineEdit } from "@/components/admin/InlineEdit";
 import { PrizeEditor } from "@/components/admin/PrizeEditor";
 import { formatDayLong } from "@/lib/eventDays";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
@@ -129,18 +130,23 @@ export function ContestsAdmin({
     }
   }
 
+  /** Lanza si falla, para que la edición en línea pueda revertir. */
   async function patchContest(id: string, body: Record<string, unknown>) {
     setBusyId(id);
+    setError(null);
     try {
       const res = await fetch("/api/admin/contests", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...body }),
       });
-      if (res.ok) {
-        const updated = (await res.json()) as ContestRow;
-        setContests((prev) => prev.map((c) => (c.id === id ? updated : c)));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.message || "No pudimos guardar el cambio.");
+        throw new Error(data.message || "patch failed");
       }
+      const updated = (await res.json()) as ContestRow;
+      setContests((prev) => prev.map((c) => (c.id === id ? updated : c)));
     } finally {
       setBusyId(null);
     }
@@ -341,9 +347,22 @@ export function ContestsAdmin({
                       <p className="text-[11px] font-extrabold uppercase tracking-[0.12em] text-pink-700">
                         {contestType.label}
                       </p>
-                      <h3 className="font-heading text-lg font-bold text-ink">
-                        {contest.name}
-                      </h3>
+                      <InlineEdit
+                        ariaLabel={`Nombre de la convocatoria ${contest.name}`}
+                        value={contest.name}
+                        className="-ml-2 font-heading text-lg font-bold text-ink"
+                        onSave={(value) => patchContest(contest.id, { name: value })}
+                      />
+                      <InlineEdit
+                        ariaLabel={`Descripción de ${contest.name}`}
+                        value={contest.description ?? ""}
+                        multiline
+                        placeholder="Descripción (opcional): reglas breves, premios, horario…"
+                        className="-ml-2 text-[13.5px] text-ink-soft"
+                        onSave={(value) =>
+                          patchContest(contest.id, { description: value })
+                        }
+                      />
                       <p className="mt-0.5 text-sm text-ink-soft">
                         {contest.entries_count} inscritos
                         {contest.max_entries != null

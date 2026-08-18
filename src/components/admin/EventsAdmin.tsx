@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
+import { InlineEdit } from "@/components/admin/InlineEdit";
 import { eventVenue, VENUE } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { EventRow } from "@/lib/types";
@@ -29,6 +30,7 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
   const [venueCity, setVenueCity] = useState("");
   const [venueMapsUrl, setVenueMapsUrl] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
@@ -78,18 +80,27 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
     }
   }
 
+  /**
+   * Lanza si el guardado falla: los campos que se editan en línea
+   * necesitan enterarse para revertir y avisar, en vez de dejar en
+   * pantalla un texto que en realidad no se guardó.
+   */
   async function patchEvent(id: string, body: Record<string, unknown>) {
     setBusyId(id);
+    setEditError(null);
     try {
       const res = await fetch("/api/admin/events", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...body }),
       });
-      if (res.ok) {
-        const updated = (await res.json()) as EventRow;
-        setEvents((prev) => prev.map((ev) => (ev.id === id ? updated : ev)));
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setEditError(data.message || "No pudimos guardar el cambio.");
+        throw new Error(data.message || "patch failed");
       }
+      const updated = (await res.json()) as EventRow;
+      setEvents((prev) => prev.map((ev) => (ev.id === id ? updated : ev)));
     } finally {
       setBusyId(null);
     }
@@ -211,12 +222,24 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
         </form>
       </Card>
 
+      {editError && (
+        <p className={`mt-6 ${formErrorBoxClass}`}>{editError}</p>
+      )}
+
       <div className="mt-6 space-y-4">
         {events.map((event) => (
           <Card key={event.id} className="p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h3 className="font-heading text-lg font-bold text-ink">{event.name}</h3>
+              <div className="min-w-0 flex-1">
+                {/* El nombre se corrige aquí mismo: una falta de
+                    ortografía no debería costar borrar la edición y
+                    volver a capturarla con todo lo que cuelga de ella. */}
+                <InlineEdit
+                  ariaLabel={`Nombre de la edición ${event.name}`}
+                  value={event.name}
+                  className="-ml-2 font-heading text-lg font-bold text-ink"
+                  onSave={(value) => patchEvent(event.id, { name: value })}
+                />
                 <p className="mt-0.5 text-sm text-ink-soft">
                   {formatEventDates(event.date_start, event.date_end)}
                 </p>
@@ -242,6 +265,41 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
             </div>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div>
+                <label className={labelClass}>Primer día</label>
+                <InlineEdit
+                  ariaLabel="Primer día del evento"
+                  inputType="date"
+                  value={event.date_start}
+                  className="text-sm text-ink"
+                  onSave={(value) => patchEvent(event.id, { dateStart: value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Último día</label>
+                <InlineEdit
+                  ariaLabel="Último día del evento"
+                  inputType="date"
+                  value={event.date_end}
+                  className="text-sm text-ink"
+                  onSave={(value) => patchEvent(event.id, { dateEnd: value })}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Fecha límite de pago</label>
+                <InlineEdit
+                  ariaLabel="Fecha límite de pago"
+                  inputType="date"
+                  value={event.payment_deadline}
+                  className="text-sm text-ink"
+                  onSave={(value) =>
+                    patchEvent(event.id, { paymentDeadline: value })
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-3">
               <div>
                 <label className={labelClass}>Sede de esta edición</label>
                 <input

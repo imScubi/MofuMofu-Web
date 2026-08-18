@@ -137,6 +137,27 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = createAdminClient();
+
+  // Corregir una fecha suelta puede dejar el rango al revés, y una
+  // edición que "termina antes de empezar" deja el plan logístico sin
+  // días. Se compara contra lo que ya está guardado.
+  if (fields.dateStart !== undefined || fields.dateEnd !== undefined) {
+    const { data: current } = await supabase
+      .from("events")
+      .select("date_start, date_end")
+      .eq("id", id)
+      .maybeSingle();
+
+    const start = fields.dateStart ?? current?.date_start;
+    const end = fields.dateEnd ?? current?.date_end;
+    if (start && end && end < start) {
+      return NextResponse.json(
+        { message: "La fecha de fin no puede ser anterior a la de inicio." },
+        { status: 400 }
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from("events")
     .update(update)
