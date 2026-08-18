@@ -13,6 +13,20 @@ export interface EventRow {
   venue_name: string | null;
   venue_city: string | null;
   venue_maps_url: string | null;
+  /** Planes propios de esta edición; se leen con plansForEvent(). */
+  extra_plans: unknown;
+  created_at: string;
+}
+
+/** Un tramo de stands apartado para ciertos planes. */
+export interface EventZoneRow {
+  id: string;
+  event_id: string;
+  label: string;
+  stand_ids: string[];
+  plan_ids: string[];
+  /** Tope de expositores dentro de la zona; null = sólo lo limitan sus lugares. */
+  max_exhibitors: number | null;
   created_at: string;
 }
 
@@ -61,6 +75,9 @@ export interface RegistrationRow {
   reglamento_accepted: boolean;
   reglamento_accepted_at: string | null;
   restricted_giros_accepted: boolean;
+  /** Descuento interno: "percent" o "amount". null = sin descuento. */
+  discount_type: "percent" | "amount" | null;
+  discount_value: number;
   /** Logo del negocio en el bucket público; null en registros viejos. */
   logo_path: string | null;
   /** Día que participa; null = todos los días de la edición. */

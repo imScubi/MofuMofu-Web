@@ -17,6 +17,12 @@ interface StandMapProps {
   initialStands: EventStandRow[];
   selectedId: string | null;
   onSelect: (standId: string) => void;
+  /**
+   * Lugares que existen y están libres, pero que no le tocan a quien
+   * está eligiendo (son de otra zona, o su zona ya llegó al tope). El
+   * mapa no sabe de zonas: sólo pregunta.
+   */
+  isLocked?: (standId: string) => boolean;
 }
 
 // Los cuatro estados se distinguen SIN color, para daltonismo:
@@ -85,6 +91,26 @@ function CrossGlyph() {
   );
 }
 
+function LockGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" className="h-[58%] w-[58%]" aria-hidden="true">
+      <rect x={3.4} y={7} width={9.2} height={6} rx={1.6} fill="currentColor" />
+      <path
+        d="M5.6 7V5.4a2.4 2.4 0 014.8 0V7"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** Lugar libre que no le toca a este plan: se ve apartado, no roto. */
+const LOCKED_STYLE: StatusStyle = {
+  className: "bg-lavender-100/70 border-2 border-dashed border-lavender-500 text-lavender-500",
+  label: "Reservado para otro giro",
+};
+
 /** El glifo que va dentro del cuadro del stand, por estado. */
 function standGlyph(status: StandStatus, id: string) {
   if (status === "sold") return <CheckGlyph />;
@@ -117,6 +143,7 @@ export function StandMap({
   initialStands,
   selectedId,
   onSelect,
+  isLocked,
 }: StandMapProps) {
   const [stands, setStands] = useState<Record<string, EventStandRow>>(() =>
     Object.fromEntries(initialStands.map((s) => [s.stand_id, s]))
@@ -151,6 +178,16 @@ export function StandMap({
       supabase.removeChannel(channel);
     };
   }, [eventId]);
+
+  // La leyenda del candado sólo aparece cuando hay algo que explicar.
+  const lockedCount = isLocked
+    ? STAND_LAYOUT.filter(
+        (stand) =>
+          stand.reservable &&
+          (stands[stand.id]?.status ?? "available") === "available" &&
+          isLocked(stand.id)
+      ).length
+    : 0;
 
   return (
     <div>
@@ -193,8 +230,12 @@ export function StandMap({
               );
             }
 
-            const style = STATUS_STYLES[status];
-            const isSelectable = stand.reservable && status === "available";
+            // El candado sólo tiene sentido sobre un lugar que de otro
+            // modo se podría elegir: si ya está apartado, lo que manda
+            // es su estado real.
+            const locked = status === "available" && Boolean(isLocked?.(stand.id));
+            const style = locked ? LOCKED_STYLE : STATUS_STYLES[status];
+            const isSelectable = stand.reservable && status === "available" && !locked;
             const isSelected = selectedId === stand.id;
 
             return (
@@ -219,7 +260,7 @@ export function StandMap({
                 )}
                 style={{ ...position, ...(isSelected ? undefined : style.style) }}
               >
-                {isSelected ? stand.id : standGlyph(status, stand.id)}
+                {isSelected ? stand.id : locked ? <LockGlyph /> : standGlyph(status, stand.id)}
               </button>
             );
           })}
@@ -245,6 +286,20 @@ export function StandMap({
           </span>
           Módulo de informes
         </span>
+        {lockedCount > 0 && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink">
+            <span
+              className={clsx(
+                "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px]",
+                LOCKED_STYLE.className
+              )}
+              aria-hidden="true"
+            >
+              <LockGlyph />
+            </span>
+            {LOCKED_STYLE.label}
+          </span>
+        )}
         {/* Sólo tiene sentido cuando ya hay uno elegido: si no, la
             leyenda anuncia un estado que no existe en el mapa. */}
         {selectedId && (

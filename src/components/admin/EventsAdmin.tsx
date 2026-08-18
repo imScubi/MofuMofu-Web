@@ -377,6 +377,12 @@ export function EventsAdmin({ initialEvents }: { initialEvents: EventRow[] }) {
                 </Button>
               </Link>
 
+              <Link href={`/admin/dashboard/espacios?event=${event.id}`}>
+                <Button variant="ghost" className="!px-4 !py-1.5 text-xs">
+                  Planes y zonas
+                </Button>
+              </Link>
+
               <Link href={`/admin/dashboard/convocatorias?event=${event.id}`}>
                 <Button variant="ghost" className="!px-4 !py-1.5 text-xs">
                   Convocatorias

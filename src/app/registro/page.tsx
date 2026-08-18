@@ -5,7 +5,7 @@ import { Character } from "@/components/ui/Character";
 import { FlowerShape } from "@/components/ui/Decorations";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
-import type { EventRow, EventStandRow } from "@/lib/types";
+import type { EventRow, EventStandRow, EventZoneRow } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +65,22 @@ export default async function RegistroPage() {
     standsByEvent[row.event_id]?.push(row);
   }
 
+  // Las zonas deciden qué lugares le tocan a cada plan, así que viajan
+  // con el formulario: sin ellas el mapa ofrecería lugares imposibles.
+  const { data: zonesData } = await supabase
+    .from("event_zones")
+    .select("*")
+    .in(
+      "event_id",
+      events.map((e) => e.id)
+    );
+
+  const zonesByEvent: Record<string, EventZoneRow[]> = {};
+  for (const event of events) zonesByEvent[event.id] = [];
+  for (const row of (zonesData as EventZoneRow[]) ?? []) {
+    zonesByEvent[row.event_id]?.push(row);
+  }
+
   return (
     <main className="flex-1 px-4 py-10 sm:py-14">
       <div className="mx-auto mb-8 max-w-3xl text-center">
@@ -74,7 +90,11 @@ export default async function RegistroPage() {
         </h1>
         <p className="mt-2 text-ink-soft">Sigue estos pasos para apartar tu lugar</p>
       </div>
-      <RegistrationForm events={events} standsByEvent={standsByEvent} />
+      <RegistrationForm
+        events={events}
+        standsByEvent={standsByEvent}
+        zonesByEvent={zonesByEvent}
+      />
     </main>
   );
 }

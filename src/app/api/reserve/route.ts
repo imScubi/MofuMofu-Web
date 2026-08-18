@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PRICING_PLANS } from "@/lib/eventConfig";
+import {
+  findPlanForEvent,
+  occupiedStandIds,
+  standRejectionReason,
+} from "@/lib/zones";
 import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
 import { LogoUploadError, uploadBusinessLogo } from "@/lib/uploadLogo";
 import { eventDays } from "@/lib/eventDays";
@@ -72,11 +76,6 @@ export async function POST(request: Request) {
 
   const payload = parsed.data;
 
-  const plan = PRICING_PLANS.find((p) => p.id === payload.planId);
-  if (!plan) {
-    return NextResponse.json({ message: "Plan de stand inválido." }, { status: 400 });
-  }
-
   if (payload.reglamentoAccepted !== "true") {
     return NextResponse.json(
       { message: "Debes leer y aceptar el reglamento para completar tu registro." },
@@ -90,7 +89,9 @@ export async function POST(request: Request) {
   // activados el expositor tuvo que aceptar esa cláusula.
   const { data: eventData } = await supabase
     .from("events")
-    .select("id, is_open, restricted_giros_enabled, date_start, date_end")
+    .select(
+      "id, is_open, restricted_giros_enabled, date_start, date_end, extra_plans"
+    )
     .eq("id", payload.eventId)
     .maybeSingle();
 
@@ -99,6 +100,38 @@ export async function POST(request: Request) {
       { message: "Esa edición del evento ya no está abierta a registros." },
       { status: 409 }
     );
+  }
+
+  // El plan se busca dentro de la edición: además de los seis de
+  // siempre, puede tener planes propios (por ejemplo "Artistas").
+  const plan = findPlanForEvent(eventData.extra_plans, payload.planId);
+  if (!plan) {
+    return NextResponse.json({ message: "Plan de stand inválido." }, { status: 400 });
+  }
+
+  // Zonas: el formulario ya filtró el mapa, pero la regla que cuenta es
+  // ésta. Sin ella bastaría un POST a mano para meter un puesto de
+  // comida en el pasillo de artistas.
+  const { data: zonesData } = await supabase
+    .from("event_zones")
+    .select("*")
+    .eq("event_id", payload.eventId);
+
+  if (zonesData && zonesData.length > 0) {
+    const { data: standRows } = await supabase
+      .from("event_stands")
+      .select("stand_id, status")
+      .eq("event_id", payload.eventId);
+
+    const rejection = standRejectionReason(
+      zonesData,
+      plan.id,
+      payload.standId,
+      occupiedStandIds(standRows ?? [])
+    );
+    if (rejection) {
+      return NextResponse.json({ message: rejection }, { status: 409 });
+    }
   }
 
   if (

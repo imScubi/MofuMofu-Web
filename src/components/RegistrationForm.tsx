@@ -12,7 +12,6 @@ import { Checkbox } from "@/components/ui/Checkbox";
 import {
   BUSINESS_CATEGORIES,
   EVENT_CONFIG,
-  PRICING_PLANS,
   SHARED_PLAN_NOTICE,
   STAND_INCLUDES,
   eventVenue,
@@ -27,11 +26,21 @@ import {
   inputClass,
   labelClass,
 } from "@/lib/formClasses";
-import type { EventRow, EventStandRow } from "@/lib/types";
+import {
+  availabilityForPlan,
+  isStandAllowed,
+  occupiedStandIds,
+  plansForEvent,
+  standRejectionReason,
+  zonesForPlan,
+} from "@/lib/zones";
+import type { EventRow, EventStandRow, EventZoneRow } from "@/lib/types";
 
 interface RegistrationFormProps {
   events: EventRow[];
   standsByEvent: Record<string, EventStandRow[]>;
+  /** Zonas por edición: qué lugares le tocan a cada plan. */
+  zonesByEvent: Record<string, EventZoneRow[]>;
 }
 
 type Step = "event" | "map" | "info" | "reglamento" | "payment" | "done";
@@ -43,7 +52,11 @@ type Step = "event" | "map" | "info" | "reglamento" | "payment" | "done";
 // visible. Toda la validación se hace a mano en JS, con mensajes
 // explícitos, para evitar ese silencio.
 
-export function RegistrationForm({ events, standsByEvent }: RegistrationFormProps) {
+export function RegistrationForm({
+  events,
+  standsByEvent,
+  zonesByEvent,
+}: RegistrationFormProps) {
   const [step, setStep] = useState<Step>(events.length === 1 ? "map" : "event");
   const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(
     events.length === 1 ? events[0] : null
@@ -87,6 +100,31 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
   const days = selectedEvent
     ? eventDays(selectedEvent.date_start, selectedEvent.date_end)
     : [];
+
+  // Los planes salen de la edición: a los seis de siempre se suman los
+  // que el organizador haya definido sólo para ésta.
+  const plans = selectedEvent ? plansForEvent(selectedEvent.extra_plans) : [];
+  const zones = selectedEvent ? (zonesByEvent[selectedEvent.id] ?? []) : [];
+  // El cupo de una zona se cuenta con los lugares que ya son de alguien,
+  // que es justo lo que el mapa muestra apartado o en proceso.
+  const occupied = occupiedStandIds(eventStands);
+
+  // Qué lugares admite el plan elegido. Se calcula con las mismas
+  // reglas que aplica el servidor al reservar, así el mapa nunca ofrece
+  // un lugar que después va a rebotar.
+  const zoneRules = selectedPlan
+    ? availabilityForPlan(zones, selectedPlan.id, occupied)
+    : null;
+
+  // Un aviso antes del plano vale más que descubrir a base de tocar
+  // cuáles son los lugares con candado.
+  const planZones = selectedPlan ? zonesForPlan(zones, selectedPlan.id) : [];
+  const zoneNotice =
+    selectedPlan && planZones.length > 0
+      ? `Con el plan ${selectedPlan.categoryLabel} sólo puedes apartar lugares de ${planZones
+          .map((zone) => zone.label)
+          .join(" o ")}.`
+      : null;
   const needsDayChoice = Boolean(selectedPlan && selectedPlan.days === 1 && days.length > 1);
 
   // Con una sola edición nunca existe el paso de elegirla: mostrarlo
@@ -111,6 +149,22 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
     setReglamentoAccepted(false);
     setGirosAccepted(false);
     setStep("map");
+  }
+
+  function handleSelectPlan(plan: PricingPlan) {
+    setSelectedPlan(plan);
+    // Cambiar de plan puede dejar el lugar elegido fuera de zona. Sólo
+    // se suelta cuando de verdad dejó de valer: obligar a volver a
+    // buscarlo en el plano cuando sigue siendo válido sería castigar
+    // por cambiar de opinión.
+    if (
+      selectedStandId &&
+      standRejectionReason(zones, plan.id, selectedStandId, occupied)
+    ) {
+      setSelectedStandId(null);
+    }
+    // El día que participa depende del plan: uno de dos días no lo pide.
+    if (plan.days !== 1) setParticipationDay("");
   }
 
   function handleContinueToPayment() {
@@ -323,7 +377,7 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1">
               <h2 className="font-heading text-xl font-bold text-ink">
-                Elige tu stand en el mapa
+                Elige tu plan y tu lugar
               </h2>
               <p className="mt-1 text-sm text-ink-soft">
                 {selectedEvent.name} ·{" "}
@@ -335,43 +389,74 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
             </div>
             <Character name="gato" size={78} className="hidden shrink-0 sm:block" />
           </div>
-          <p className="mt-1 text-sm text-ink-soft">
-            Toca un espacio disponible (verde menta) para seleccionarlo.
-          </p>
-          <div className="mt-4">
-            <StandMap
-              eventId={selectedEvent.id}
-              initialStands={eventStands}
-              selectedId={selectedStandId}
-              onSelect={(id) => setSelectedStandId(id)}
-            />
+
+          {/* El plan va antes que el mapa: cuando la edición tiene zonas
+              es el plan el que decide qué lugares se pueden apartar, y
+              ofrecer el plano completo primero sólo lleva a elegir un
+              stand que después rebota. */}
+          <div className="mt-5">
+            <h3 className="font-heading text-lg font-bold text-ink">
+              1. Elige tu plan
+            </h3>
+            <p className="mt-1 text-sm text-ink-soft">
+              Incluye: {STAND_INCLUDES.join(" · ")}.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {plans.map((plan) => (
+                <PlanCard
+                  key={plan.id}
+                  plan={plan}
+                  selected={selectedPlan?.id === plan.id}
+                  onSelect={() => handleSelectPlan(plan)}
+                />
+              ))}
+            </div>
+            {selectedPlan?.shared && (
+              <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-2.5 text-sm text-ink-soft">
+                {SHARED_PLAN_NOTICE}
+              </p>
+            )}
           </div>
 
-          {selectedStandId && (
-            <div className="mt-6">
-              <h3 className="font-heading text-lg font-bold text-ink">
-                Elige tu plan para el stand #{selectedStandId}
-              </h3>
-              <p className="mt-1 text-sm text-ink-soft">
-                Incluye: {STAND_INCLUDES.join(" · ")}.
+          <div className="mt-7">
+            <h3 className="font-heading text-lg font-bold text-ink">
+              2. Elige tu lugar en el mapa
+            </h3>
+
+            {!selectedPlan ? (
+              <p className="mt-2 rounded-2xl bg-cream px-4 py-3 text-sm text-ink-soft">
+                Primero elige tu plan: de eso depende qué lugares te tocan.
               </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                {PRICING_PLANS.map((plan) => (
-                  <PlanCard
-                    key={plan.id}
-                    plan={plan}
-                    selected={selectedPlan?.id === plan.id}
-                    onSelect={() => setSelectedPlan(plan)}
-                  />
+            ) : (
+              <>
+                {zoneNotice && (
+                  <p className="mt-2 rounded-2xl bg-lavender-100/60 px-4 py-2.5 text-sm text-ink-soft">
+                    {zoneNotice}
+                  </p>
+                )}
+                {zoneRules?.fullZones.map((zone) => (
+                  <p
+                    key={zone.label}
+                    className="mt-2 rounded-2xl bg-amber-100/70 px-4 py-2.5 text-sm text-ink-soft"
+                  >
+                    {zone.reason} Escríbenos si quieres quedar en lista de espera.
+                  </p>
                 ))}
-              </div>
-              {selectedPlan?.shared && (
-                <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-2.5 text-sm text-ink-soft">
-                  {SHARED_PLAN_NOTICE}
+                <p className="mt-2 text-sm text-ink-soft">
+                  Toca un espacio disponible (verde menta) para seleccionarlo.
                 </p>
-              )}
-            </div>
-          )}
+                <div className="mt-4">
+                  <StandMap
+                    eventId={selectedEvent.id}
+                    initialStands={eventStands}
+                    selectedId={selectedStandId}
+                    onSelect={(id) => setSelectedStandId(id)}
+                    isLocked={(id) => !isStandAllowed(zoneRules, id)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
 
           <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <span className="text-sm text-ink-soft">
@@ -379,9 +464,9 @@ export function RegistrationForm({ events, standsByEvent }: RegistrationFormProp
                 ? `Stand #${selectedStandId} · ${selectedPlan.categoryLabel} (${selectedPlan.days} ${
                     selectedPlan.days === 1 ? "día" : "días"
                   }) · $${selectedPlan.price.toLocaleString("es-MX")} ${EVENT_CONFIG.currency}`
-                : selectedStandId
-                  ? "Elige un plan para continuar"
-                  : "Aún no has elegido un stand"}
+                : selectedPlan
+                  ? "Elige tu lugar en el mapa para continuar"
+                  : "Aún no has elegido tu plan"}
             </span>
             <div className="flex items-center justify-between gap-3">
               {events.length > 1 && (

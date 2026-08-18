@@ -19,6 +19,25 @@ const createSchema = z.object({
   venueMapsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
 });
 
+/**
+ * Un plan propio de la edición (por ejemplo "Artistas"). Comparte forma
+ * con los de siempre para que el registro no tenga que distinguirlos.
+ */
+const extraPlanSchema = z.object({
+  id: z
+    .string()
+    .trim()
+    .min(1)
+    .max(40)
+    // El id viaja en el formulario y se guarda en cada registro: sin
+    // espacios ni acentos se puede leer después en el Excel.
+    .regex(/^[a-z0-9_]+$/, "El identificador sólo admite minúsculas, números y _"),
+  categoryLabel: z.string().trim().min(1).max(60),
+  days: z.union([z.literal(1), z.literal(2)]),
+  price: z.number().min(0).max(1000000),
+  shared: z.boolean(),
+});
+
 const updateSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(120).optional(),
@@ -30,6 +49,7 @@ const updateSchema = z.object({
   venueName: z.string().trim().max(120).optional().or(z.literal("")),
   venueCity: z.string().trim().max(80).optional().or(z.literal("")),
   venueMapsUrl: z.string().trim().url().max(500).optional().or(z.literal("")),
+  extraPlans: z.array(extraPlanSchema).max(12).optional(),
 });
 
 export async function POST(request: Request) {
@@ -131,6 +151,16 @@ export async function PATCH(request: Request) {
   if (fields.venueCity !== undefined) update.venue_city = fields.venueCity || null;
   if (fields.venueMapsUrl !== undefined)
     update.venue_maps_url = fields.venueMapsUrl || null;
+  if (fields.extraPlans !== undefined) {
+    const ids = fields.extraPlans.map((plan) => plan.id);
+    if (new Set(ids).size !== ids.length) {
+      return NextResponse.json(
+        { message: "Hay dos planes con el mismo identificador." },
+        { status: 400 }
+      );
+    }
+    update.extra_plans = fields.extraPlans;
+  }
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ message: "Nada que actualizar." }, { status: 400 });
