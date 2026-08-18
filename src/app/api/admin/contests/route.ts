@@ -3,11 +3,25 @@ import { z } from "zod";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CONTEST_TYPES } from "@/lib/contestTypes";
+import { getRegulationTemplate } from "@/lib/contestRegulation";
 
 export const runtime = "nodejs";
 
 const contestTypeIds = CONTEST_TYPES.map((t) => t.id) as [string, ...string[]];
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida");
+
+const prizePlaceSchema = z.object({
+  cash: z.number().min(0).max(1000000),
+  percent: z.number().min(0).max(100),
+  other: z.string().trim().max(160),
+});
+
+const prizeCategorySchema = z.object({
+  label: z.string().trim().min(1).max(80),
+  entryFee: z.number().min(0).max(100000),
+  slots: z.number().int().positive().max(10000).nullable(),
+  places: z.array(prizePlaceSchema).max(10),
+});
 
 const createSchema = z.object({
   eventId: z.string().uuid(),
@@ -16,6 +30,7 @@ const createSchema = z.object({
   description: z.string().trim().max(500).optional().or(z.literal("")),
   maxEntries: z.number().int().positive().max(10000).nullable().optional(),
   registrationDeadline: dateSchema.nullable().optional(),
+  day: dateSchema.nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -25,6 +40,9 @@ const updateSchema = z.object({
   maxEntries: z.number().int().positive().max(10000).nullable().optional(),
   registrationDeadline: dateSchema.nullable().optional(),
   isOpen: z.boolean().optional(),
+  day: dateSchema.nullable().optional(),
+  prizeCategories: z.array(prizeCategorySchema).max(8).optional(),
+  regulationNotes: z.string().trim().max(1200).optional().or(z.literal("")),
 });
 
 export async function POST(request: Request) {
@@ -40,8 +58,15 @@ export async function POST(request: Request) {
     );
   }
 
-  const { eventId, type, name, description, maxEntries, registrationDeadline } =
-    parsed.data;
+  const {
+    eventId,
+    type,
+    name,
+    description,
+    maxEntries,
+    registrationDeadline,
+    day,
+  } = parsed.data;
 
   const supabase = createAdminClient();
   const { data, error } = await supabase
@@ -53,6 +78,11 @@ export async function POST(request: Request) {
       description: description || null,
       max_entries: maxEntries ?? null,
       registration_deadline: registrationDeadline || null,
+      day: day || null,
+      // La convocatoria nace con la premiación típica de su tipo, para
+      // que el reglamento diga algo desde el primer momento; de ahí se
+      // ajustan los montos edición con edición.
+      prize_categories: getRegulationTemplate(type).defaultPrizes,
     })
     .select()
     .single();
@@ -85,6 +115,11 @@ export async function PATCH(request: Request) {
   if (fields.registrationDeadline !== undefined)
     update.registration_deadline = fields.registrationDeadline;
   if (fields.isOpen !== undefined) update.is_open = fields.isOpen;
+  if (fields.day !== undefined) update.day = fields.day;
+  if (fields.prizeCategories !== undefined)
+    update.prize_categories = fields.prizeCategories;
+  if (fields.regulationNotes !== undefined)
+    update.regulation_notes = fields.regulationNotes || null;
 
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ message: "Nada que actualizar." }, { status: 400 });

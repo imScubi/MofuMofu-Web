@@ -16,6 +16,7 @@ const schema = z.object({
   phone: z.string().trim().min(6).max(30),
   email: z.string().trim().email().optional().or(z.literal("")),
   answers: z.record(z.string(), z.string().max(1000)),
+  reglamentoAccepted: z.boolean(),
 });
 
 // Los motivos de rechazo que levanta register_contest_entry(), en
@@ -52,6 +53,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ message: "Esa convocatoria ya no existe." }, { status: 404 });
   }
 
+  // La aceptación se revalida en el servidor: la casilla del navegador
+  // es una cortesía, no una prueba.
+  if (!payload.reglamentoAccepted) {
+    return NextResponse.json(
+      { message: "Debes aceptar el reglamento para inscribirte." },
+      { status: 400 }
+    );
+  }
+
   // El tipo manda qué preguntas son válidas: así nadie puede inyectar
   // campos que el admin nunca configuró.
   const type = getContestType(contest.type);
@@ -66,6 +76,7 @@ export async function POST(request: Request) {
     p_phone: payload.phone,
     p_email: payload.email || null,
     p_answers: cleanAnswers(type, payload.answers),
+    p_reglamento_accepted: true,
   });
 
   if (error) {

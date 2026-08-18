@@ -10,7 +10,12 @@
 // único que cambia entre tipos es cómo se llama el nombre, y para eso
 // está "nameLabel".
 
-export type ContestTypeId = "dance_cover" | "cosplay" | "tcg" | "otro";
+export type ContestTypeId =
+  | "dance_cover"
+  | "cosplay"
+  | "tcg"
+  | "videojuegos"
+  | "otro";
 
 export type ContestFieldType =
   | "text"
@@ -239,6 +244,51 @@ export const CONTEST_TYPES: readonly ContestType[] = [
         label: "Algo que debamos saber",
         type: "textarea",
         placeholder: "Horario en el que puedes jugar, si llegas con acompañante, etc.",
+        maxLength: 600,
+      },
+    ],
+  },
+  {
+    id: "videojuegos",
+    label: "Torneo de videojuegos",
+    defaultName: "Torneo de Smash Bros.",
+    description: "Regístrate en el torneo de videojuegos.",
+    nameLabel: "Nombre del jugador",
+    fields: [
+      {
+        id: "gamertag",
+        label: "Gamertag o como quieres que te presentemos",
+        type: "text",
+        required: true,
+      },
+      {
+        id: "nivel",
+        label: "¿Cómo describes tu nivel?",
+        type: "select",
+        options: ["Primera vez", "Casual", "Competitivo"],
+      },
+      {
+        id: "personaje",
+        label: "Personaje o main (opcional)",
+        type: "text",
+        placeholder: "Con quién sueles jugar",
+      },
+      {
+        id: "control",
+        label: "¿Llevas tu propio control?",
+        type: "select",
+        options: ["Sí, llevo el mío", "No, necesito prestado"],
+      },
+      {
+        id: "redes",
+        label: "Redes sociales",
+        type: "text",
+        placeholder: "@usuario de Instagram, TikTok o Facebook",
+      },
+      {
+        id: "notas",
+        label: "Algo que debamos saber",
+        type: "textarea",
         maxLength: 600,
       },
     ],

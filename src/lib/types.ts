@@ -84,6 +84,12 @@ export interface ContestRow {
   is_open: boolean;
   /** Lo mantiene un trigger; sirve para mostrar los lugares que quedan. */
   entries_count: number;
+  /** Día de la edición en el que se hace. null = sin definir. */
+  day: string | null;
+  /** Premiación por categoría; se valida con parsePrizeCategories(). */
+  prize_categories: unknown;
+  /** Avisos extra que se agregan al final del reglamento. */
+  regulation_notes: string | null;
   created_at: string;
 }
 
@@ -98,6 +104,8 @@ export interface ContestEntryRow {
   /** Respuestas propias del tipo de convocatoria. */
   answers: Record<string, string>;
   status: ContestEntryStatus;
+  reglamento_accepted: boolean;
+  reglamento_accepted_at: string | null;
   admin_notes: string | null;
   created_at: string;
   updated_at: string;

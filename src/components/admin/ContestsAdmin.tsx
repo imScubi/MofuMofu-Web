@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CONTEST_TYPES, getContestType, type ContestTypeId } from "@/lib/contestTypes";
 import { contestAvailability } from "@/lib/contestStatus";
+import { PrizeEditor } from "@/components/admin/PrizeEditor";
+import { formatDayLong } from "@/lib/eventDays";
 import { formErrorBoxClass, inputClass, labelClass } from "@/lib/formClasses";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type {
@@ -349,6 +351,7 @@ export function ContestsAdmin({
                           : " · sin límite de cupo"}
                         {contest.registration_deadline &&
                           ` · cierra el ${formatDate(contest.registration_deadline)}`}
+                        {contest.day && ` · ${formatDayLong(contest.day)}`}
                       </p>
                     </div>
                     <span
@@ -420,6 +423,15 @@ export function ContestsAdmin({
                         </Button>
                       )}
                     </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <PrizeEditor
+                      contest={contest}
+                      event={selectedEvent}
+                      busy={busyId === contest.id}
+                      onSave={(body) => patchContest(contest.id, body)}
+                    />
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">

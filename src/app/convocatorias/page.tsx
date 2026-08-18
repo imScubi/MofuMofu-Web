@@ -147,6 +147,15 @@ export default async function ConvocatoriasPage() {
                           {availability.closedReason}
                         </p>
                       )}
+
+                      {/* El reglamento se puede leer antes de decidir, sin
+                          entrar al formulario. */}
+                      <Link
+                        href={`/convocatorias/${contest.id}/reglamento`}
+                        className="mt-2 block text-center text-[13px] font-bold text-pink-700 underline underline-offset-2"
+                      >
+                        Ver reglamento y premios
+                      </Link>
                     </Card>
                   );
                 })}

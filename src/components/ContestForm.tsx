@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Character, type CharacterName } from "@/components/ui/Character";
+import { Checkbox } from "@/components/ui/Checkbox";
+import { ContestRegulation } from "@/components/ContestRegulation";
 import {
   cleanAnswers,
   getContestType,
@@ -62,6 +64,7 @@ export function ContestForm({ contest, event }: ContestFormProps) {
     return initial;
   });
 
+  const [reglamentoAccepted, setReglamentoAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<number | null>(null);
@@ -91,6 +94,10 @@ export function ContestForm({ contest, event }: ContestFormProps) {
       setError(invalid.message);
       return;
     }
+    if (!reglamentoAccepted) {
+      setError("Debes leer y aceptar el reglamento para inscribirte.");
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -109,6 +116,7 @@ export function ContestForm({ contest, event }: ContestFormProps) {
           phone: phone.trim(),
           email: email.trim(),
           answers: cleanAnswers(type, answers),
+          reglamentoAccepted,
         }),
       });
 
@@ -304,6 +312,35 @@ export function ContestForm({ contest, event }: ContestFormProps) {
                 />
               ) : null
             )}
+
+            {/* El reglamento va dentro del formulario, no en un link que
+                nadie abre: es lo que respalda una descalificación o un
+                "no hay reembolso" el día del evento. */}
+            <div className="rounded-2xl border-2 border-lavender-300 bg-white p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h2 className="font-heading text-base font-bold text-ink">
+                  Reglamento del concurso
+                </h2>
+                <Link
+                  href={`/convocatorias/${contest.id}/reglamento`}
+                  target="_blank"
+                  className="text-[13px] font-bold text-pink-700 underline underline-offset-2"
+                >
+                  Abrir en otra pestaña ↗
+                </Link>
+              </div>
+              <div className="mofu-scroll mt-3 max-h-[320px] overflow-y-auto rounded-2xl bg-cream/60 p-4">
+                <ContestRegulation contest={contest} event={event} />
+              </div>
+              <div className="mt-3">
+                <Checkbox
+                  checked={reglamentoAccepted}
+                  onChange={(e) => setReglamentoAccepted(e.target.checked)}
+                >
+                  Leí y acepto el reglamento completo de este concurso.
+                </Checkbox>
+              </div>
+            </div>
 
             {error && (
               <p ref={errorRef} role="alert" className={formErrorBoxClass}>
