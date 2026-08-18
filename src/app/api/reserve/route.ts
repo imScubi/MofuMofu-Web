@@ -6,8 +6,7 @@ import {
   occupiedStandIds,
   standRejectionReason,
 } from "@/lib/zones";
-import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
-import { LogoUploadError, uploadBusinessLogo } from "@/lib/uploadLogo";
+import { uploadedObjectExists } from "@/lib/storagePaths";
 import { eventDays } from "@/lib/eventDays";
 
 export const runtime = "nodejs";
@@ -38,6 +37,10 @@ const schema = z.object({
   amountReported: z.coerce.number().min(0),
   reglamentoAccepted: z.enum(["true", "false"]),
   restrictedGirosAccepted: z.enum(["true", "false"]),
+  // Los archivos ya viajaron aparte; aquí llegan sus rutas.
+  logoPath: z.string().trim().min(1).max(200),
+  paymentProofPath: z.string().trim().min(1).max(200),
+  paymentProofPath2: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
 export async function POST(request: Request) {
@@ -65,6 +68,9 @@ export async function POST(request: Request) {
     amountReported: formData.get("amountReported"),
     reglamentoAccepted: formData.get("reglamentoAccepted"),
     restrictedGirosAccepted: formData.get("restrictedGirosAccepted"),
+    logoPath: formData.get("logoPath"),
+    paymentProofPath: formData.get("paymentProofPath"),
+    paymentProofPath2: formData.get("paymentProofPath2") || "",
   });
 
   if (!parsed.success) {
@@ -163,64 +169,51 @@ export async function POST(request: Request) {
     );
   }
 
-  let logoPath: string | null;
-  try {
-    logoPath = await uploadBusinessLogo(
+  // Los archivos se subieron directo a Storage. El servidor no los vio
+  // pasar, así que comprueba que existan y sean de este stand: si no,
+  // el registro entraría sin comprobante que revisar.
+  const [logoOk, proofOk] = await Promise.all([
+    uploadedObjectExists(supabase, "logo", payload.standId, payload.logoPath),
+    uploadedObjectExists(
       supabase,
+      "comprobante",
       payload.standId,
-      formData.get("logo") as File | null
-    );
-  } catch (err) {
-    const message =
-      err instanceof LogoUploadError
-        ? err.message === "FILE_TOO_LARGE"
-          ? "El logo pesa más de 4MB. Súbelo más ligero."
-          : "El logo tiene que ser PNG, JPG, WEBP o SVG."
-        : "No pudimos subir tu logo. Intenta de nuevo.";
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error("upload logo error", err);
-    return NextResponse.json({ message, detail }, { status: 400 });
-  }
+      payload.paymentProofPath
+    ),
+  ]);
 
-  if (!logoPath) {
+  if (!logoOk) {
     return NextResponse.json(
-      { message: "Debes subir el logo de tu negocio." },
+      { message: "No encontramos el logo que subiste. Vuelve a adjuntarlo." },
+      { status: 400 }
+    );
+  }
+  if (!proofOk) {
+    return NextResponse.json(
+      {
+        message:
+          "No encontramos la captura de tu transferencia. Vuelve a adjuntarla.",
+      },
       { status: 400 }
     );
   }
 
-  let proofPath: string | null;
-  let proofPath2: string | null;
-  try {
-    proofPath = await uploadPaymentProof(
-      supabase,
-      payload.standId,
-      formData.get("paymentProof") as File | null,
-      "comprobante"
-    );
-    proofPath2 = await uploadPaymentProof(
-      supabase,
-      payload.standId,
-      formData.get("paymentProof2") as File | null,
-      "comprobante-2"
-    );
-  } catch (err) {
-    const message =
-      err instanceof ProofUploadError
-        ? "El archivo del comprobante es demasiado grande (máx. 8MB)."
-        : "No pudimos subir tu comprobante de pago. Intenta de nuevo.";
-    // El detalle sirve para diagnosticar: sin él, cualquier falla de
-    // Storage se ve igual que "no pasa nada".
-    const detail = err instanceof Error ? err.message : String(err);
-    console.error("upload proof error", err);
-    return NextResponse.json({ message, detail }, { status: 400 });
-  }
+  const logoPath = payload.logoPath;
+  const proofPath = payload.paymentProofPath;
 
-  if (!proofPath) {
-    return NextResponse.json(
-      { message: "Debes adjuntar la captura de tu transferencia." },
-      { status: 400 }
-    );
+  let proofPath2: string | null = payload.paymentProofPath2 || null;
+  if (
+    proofPath2 &&
+    !(await uploadedObjectExists(
+      supabase,
+      "comprobante-2",
+      payload.standId,
+      proofPath2
+    ))
+  ) {
+    // El segundo comprobante es opcional: si no llegó, no vale la pena
+    // tumbar el registro entero por él.
+    proofPath2 = null;
   }
 
   const { data, error } = await supabase.rpc("reserve_stand", {

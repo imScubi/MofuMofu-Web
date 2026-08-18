@@ -34,6 +34,7 @@ import {
   standRejectionReason,
   zonesForPlan,
 } from "@/lib/zones";
+import { DirectUploadError, uploadDirect } from "@/lib/uploadDirect";
 import type { EventRow, EventStandRow, EventZoneRow } from "@/lib/types";
 
 interface RegistrationFormProps {
@@ -64,6 +65,9 @@ export function RegistrationForm({
   const [selectedStandId, setSelectedStandId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Subir tres archivos por datos móviles tarda; decir cuál va
+  // evita que parezca colgado.
+  const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<number | null>(null);
 
@@ -232,6 +236,38 @@ export function RegistrationForm({
     setSubmitting(true);
     setError(null);
 
+    // Los archivos van directo a Storage antes del formulario: la
+    // plataforma rechaza cualquier POST de más de 4.5 MB, y logo más
+    // dos comprobantes pasaban de ahí sin esfuerzo.
+    let logoPath: string;
+    let proofPath: string;
+    let proofPath2: string | null = null;
+    try {
+      setUploading("logo");
+      logoPath = await uploadDirect("logo", selectedStandId, logo!);
+      setUploading("comprobante");
+      proofPath = await uploadDirect("comprobante", selectedStandId, paymentProof);
+      if (paymentProof2) {
+        setUploading("comprobante-2");
+        proofPath2 = await uploadDirect(
+          "comprobante-2",
+          selectedStandId,
+          paymentProof2
+        );
+      }
+    } catch (err) {
+      setError(
+        err instanceof DirectUploadError
+          ? err.message
+          : "No pudimos subir tus archivos. Revisa tu conexión e intenta de nuevo."
+      );
+      setSubmitting(false);
+      setUploading(null);
+      return;
+    } finally {
+      setUploading(null);
+    }
+
     const formData = new FormData();
     formData.set("eventId", selectedEvent.id);
     formData.set("standId", selectedStandId);
@@ -246,7 +282,7 @@ export function RegistrationForm({
     formData.set("businessCategory", businessCategory);
     formData.set("productDetails", productDetails.trim());
     formData.set("participationDay", participationDay);
-    if (logo) formData.set("logo", logo);
+    formData.set("logoPath", logoPath);
     formData.set("needsElectricity", String(needsElectricity));
     formData.set("electricityDetails", electricityDetails.trim());
     formData.set("needsGas", String(needsGas));
@@ -254,8 +290,8 @@ export function RegistrationForm({
     formData.set("amountReported", String(amount));
     formData.set("reglamentoAccepted", String(reglamentoAccepted));
     formData.set("restrictedGirosAccepted", String(girosAccepted));
-    formData.set("paymentProof", paymentProof);
-    if (paymentProof2) formData.set("paymentProof2", paymentProof2);
+    formData.set("paymentProofPath", proofPath);
+    if (proofPath2) formData.set("paymentProofPath2", proofPath2);
 
     // Sin timeout, si el servidor se queda colgado el botón se queda en
     // "Enviando..." para siempre y parece que no pasó nada.
@@ -823,7 +859,11 @@ export function RegistrationForm({
                   ← Atrás
                 </Button>
                 <Button type="submit" size="lg" disabled={submitting}>
-                  {submitting ? "Enviando..." : "Confirmar registro"}
+                  {uploading
+                    ? `Subiendo ${uploading === "logo" ? "tu logo" : "tu comprobante"}...`
+                    : submitting
+                      ? "Enviando..."
+                      : "Confirmar registro"}
                 </Button>
               </div>
             </Card>

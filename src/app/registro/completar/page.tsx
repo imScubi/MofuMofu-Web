@@ -11,6 +11,7 @@ import {
   inputClass,
   labelClass,
 } from "@/lib/formClasses";
+import { DirectUploadError, uploadDirect } from "@/lib/uploadDirect";
 
 
 interface RegistrationSummary {
@@ -83,11 +84,26 @@ export default function CompletarPagoPage() {
     setSubmitting(true);
     setSubmitError(null);
 
+    // Igual que en el registro: el archivo va directo a Storage, porque
+    // la plataforma corta cualquier POST de más de 4.5 MB.
+    let proofPath: string;
+    try {
+      proofPath = await uploadDirect("complemento", registration.standId, proof);
+    } catch (err) {
+      setSubmitError(
+        err instanceof DirectUploadError
+          ? err.message
+          : "No pudimos subir tu comprobante. Revisa tu conexión e intenta de nuevo."
+      );
+      setSubmitting(false);
+      return;
+    }
+
     const formData = new FormData();
     formData.set("folio", folio.trim());
     formData.set("phone", phone.trim());
     formData.set("additionalAmount", String(amount));
-    formData.set("proof", proof);
+    formData.set("proofPath", proofPath);
 
     try {
       const res = await fetch("/api/registration/add-payment", {

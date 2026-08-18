@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { findRegistrationByFolio } from "@/lib/registrationLookup";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
+import { uploadedObjectExists } from "@/lib/storagePaths";
 import { finalPrice } from "@/lib/discount";
 
 export const runtime = "nodejs";
@@ -11,6 +11,8 @@ const schema = z.object({
   folio: z.string().trim().min(1),
   phone: z.string().trim().min(6),
   additionalAmount: z.coerce.number().min(0.01),
+  /** El archivo ya viajó aparte; aquí llega su ruta. */
+  proofPath: z.string().trim().min(1).max(200),
 });
 
 export async function POST(request: Request) {
@@ -20,6 +22,7 @@ export async function POST(request: Request) {
     folio: formData.get("folio"),
     phone: formData.get("phone"),
     additionalAmount: formData.get("additionalAmount"),
+    proofPath: formData.get("proofPath"),
   });
 
   if (!parsed.success) {
@@ -50,30 +53,23 @@ export async function POST(request: Request) {
     );
   }
 
-  const proofFile = formData.get("proof") as File | null;
-  if (!proofFile || proofFile.size === 0) {
-    return NextResponse.json(
-      { message: "Adjunta la captura de tu segunda transferencia." },
-      { status: 400 }
-    );
-  }
-
   const supabase = createAdminClient();
 
-  let proofPath: string | null;
-  try {
-    proofPath = await uploadPaymentProof(
+  // El comprobante se subió directo a Storage, así que aquí sólo se
+  // confirma que exista y sea de este stand.
+  const proofPath = parsed.data.proofPath;
+  if (
+    !(await uploadedObjectExists(
       supabase,
+      "complemento",
       registration.stand_id,
-      proofFile,
-      "complemento"
+      proofPath
+    ))
+  ) {
+    return NextResponse.json(
+      { message: "No encontramos tu comprobante. Vuelve a adjuntarlo." },
+      { status: 400 }
     );
-  } catch (err) {
-    const message =
-      err instanceof ProofUploadError
-        ? "El archivo del comprobante es demasiado grande (máx. 8MB)."
-        : "No pudimos subir tu comprobante de pago. Intenta de nuevo.";
-    return NextResponse.json({ message }, { status: 400 });
   }
 
   const newAmount = Number(registration.amount_reported) + parsed.data.additionalAmount;
