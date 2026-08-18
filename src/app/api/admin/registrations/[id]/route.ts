@@ -9,6 +9,9 @@ const schema = z.object({
   status: z.enum(["pending_review", "approved", "rejected", "cancelled"]).optional(),
   /** Para corregir una falta de ortografía sin borrar el registro. */
   businessName: z.string().trim().min(1).max(200).optional(),
+  /** Descuento interno: sin motivo, es una decisión del organizador. */
+  discountType: z.enum(["percent", "amount"]).nullable().optional(),
+  discountValue: z.number().min(0).max(1000000).optional(),
 });
 
 export async function PATCH(
@@ -24,8 +27,26 @@ export async function PATCH(
   if (!body.success) {
     return NextResponse.json({ message: "Datos inválidos." }, { status: 400 });
   }
-  if (body.data.status === undefined && body.data.businessName === undefined) {
+  if (
+    body.data.status === undefined &&
+    body.data.businessName === undefined &&
+    body.data.discountType === undefined &&
+    body.data.discountValue === undefined
+  ) {
     return NextResponse.json({ message: "Nada que actualizar." }, { status: 400 });
+  }
+
+  // Un porcentaje mayor a 100 no es un descuento, es un regalo con
+  // cambio: el total quedaría negativo.
+  if (
+    body.data.discountType === "percent" &&
+    body.data.discountValue !== undefined &&
+    body.data.discountValue > 100
+  ) {
+    return NextResponse.json(
+      { message: "Un descuento en porcentaje no puede pasar de 100%." },
+      { status: 400 }
+    );
   }
 
   const supabase = createAdminClient();
@@ -44,6 +65,14 @@ export async function PATCH(
   if (body.data.status !== undefined) update.status = body.data.status;
   if (body.data.businessName !== undefined)
     update.business_name = body.data.businessName;
+  if (body.data.discountType !== undefined) {
+    update.discount_type = body.data.discountType;
+    // Quitar el tipo sin quitar el número dejaría un descuento fantasma
+    // guardado, listo para revivir al volver a elegir tipo.
+    if (body.data.discountType === null) update.discount_value = 0;
+  }
+  if (body.data.discountValue !== undefined)
+    update.discount_value = body.data.discountValue;
 
   const { error: updateRegError } = await supabase
     .from("registrations")

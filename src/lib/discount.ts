@@ -1,5 +1,3 @@
-import type { RegistrationRow } from "@/lib/types";
-
 /**
  * Descuentos internos.
  *
@@ -42,12 +40,4 @@ export function describeDiscount(registration: DiscountInput): string {
   return registration.discount_type === "percent"
     ? `${value}%`
     : `$${value.toLocaleString("es-MX")}`;
-}
-
-/** Lo que falta por cobrar después del descuento. */
-export function balanceDue(registration: RegistrationRow): number {
-  return Math.max(
-    finalPrice(registration) - (Number(registration.amount_reported) || 0),
-    0
-  );
 }

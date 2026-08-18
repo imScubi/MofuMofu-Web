@@ -7,6 +7,8 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { InlineEdit } from "@/components/admin/InlineEdit";
+import { DiscountCell } from "@/components/admin/DiscountCell";
+import { discountAmount, finalPrice } from "@/lib/discount";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
 import { formatDayShort } from "@/lib/eventDays";
@@ -117,19 +119,22 @@ export function AdminDashboard({
     const pending = reservable.filter((s) => s.status === "pending").length;
     const available = reservable.filter((s) => s.status === "available").length;
 
-    const expected = registrations
-      .filter((r) => r.status !== "rejected")
-      .reduce((sum, r) => sum + Number(r.plan_price), 0);
+    const live = registrations.filter((r) => r.status !== "rejected");
 
-    const collected = registrations
-      .filter((r) => r.status !== "rejected")
-      .reduce((sum, r) => sum + Number(r.amount_reported), 0);
+    // Precio de lista y descuentos van por separado: "se cobró menos" y
+    // "se decidió cobrar menos" son dos cosas distintas en un corte.
+    const listPrice = live.reduce((sum, r) => sum + Number(r.plan_price), 0);
+    const discounts = live.reduce((sum, r) => sum + discountAmount(r), 0);
+    const expected = listPrice - discounts;
+    const collected = live.reduce((sum, r) => sum + Number(r.amount_reported), 0);
 
     return {
       total: reservable.length,
       sold,
       pending,
       available,
+      listPrice,
+      discounts,
       expected,
       collected,
       balance: expected - collected,
@@ -182,6 +187,34 @@ export function AdminDashboard({
     if (!res.ok) throw new Error("rename failed");
     setRegistrations((prev) =>
       prev.map((r) => (r.id === id ? { ...r, business_name: businessName } : r))
+    );
+  }
+
+  /** Lanza si falla, para que el control revierta y avise. */
+  async function setDiscount(
+    id: string,
+    discountType: "percent" | "amount" | null,
+    discountValue: number
+  ) {
+    const res = await fetch(`/api/admin/registrations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ discountType, discountValue }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.message || "discount failed");
+    }
+    setRegistrations((prev) =>
+      prev.map((r) =>
+        r.id === id
+          ? {
+              ...r,
+              discount_type: discountType,
+              discount_value: discountType ? discountValue : 0,
+            }
+          : r
+      )
     );
   }
 
@@ -273,9 +306,13 @@ export function AdminDashboard({
         <StatCard label="Total de stands" value={stats.total} />
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Ingreso esperado"
+          label={
+            stats.discounts > 0
+              ? `Ingreso esperado (−${formatMoney(stats.discounts)})`
+              : "Ingreso esperado"
+          }
           value={formatMoney(stats.expected)}
           tone="lavender"
         />
@@ -380,8 +417,19 @@ export function AdminDashboard({
                 <Td>
                   {formatMoney(Number(r.amount_reported))}
                   <div className="text-xs text-ink-soft">
-                    de {formatMoney(Number(r.plan_price))}
+                    de {formatMoney(finalPrice(r))}
+                    {discountAmount(r) > 0 && (
+                      <span className="ml-1 line-through">
+                        {formatMoney(Number(r.plan_price))}
+                      </span>
+                    )}
                   </div>
+                  <DiscountCell
+                    registration={r}
+                    onSave={(discountType, discountValue) =>
+                      setDiscount(r.id, discountType, discountValue)
+                    }
+                  />
                 </Td>
                 <Td>
                   <span

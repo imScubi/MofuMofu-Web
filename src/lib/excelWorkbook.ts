@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
-import { EVENT_CONFIG, PRICING_PLANS } from "@/lib/eventConfig";
+import { EVENT_CONFIG } from "@/lib/eventConfig";
+import { describeDiscount, type DiscountInput } from "@/lib/discount";
+import { plansForEvent } from "@/lib/zones";
 import { formatEventDates } from "@/lib/formatDates";
 import { getContestType } from "@/lib/contestTypes";
 import { getSurveyTemplate } from "@/lib/surveyTemplates";
@@ -40,6 +42,26 @@ const ENTRY_STATUS_LABEL: Record<string, string> = {
  * signos : \\ / ? * [ ], ni repetidos. Una convocatoria puede llamarse
  * como sea, así que hay que domar el nombre antes de usarlo.
  */
+/**
+ * El descuento como fórmula de Excel, apoyada en la celda del precio.
+ *
+ * El MIN es la misma red que en la app: un descuento mayor al precio
+ * dejaría un total negativo, que en un corte de caja se lee como si el
+ * evento le debiera al expositor.
+ */
+function discountFormula(
+  registration: DiscountInput,
+  priceColumn: string,
+  rowNumber: number
+): string {
+  const value = Number(registration.discount_value) || 0;
+  const price = `${priceColumn}${rowNumber}`;
+  if (!registration.discount_type || value <= 0) return "0";
+  return registration.discount_type === "percent"
+    ? `MIN(${price},ROUND(${price}*${value}/100,2))`
+    : `MIN(${price},${value})`;
+}
+
 function safeSheetName(name: string, used: Set<string>): string {
   const base =
     name
@@ -132,6 +154,11 @@ export async function buildEventWorkbook({
     { header: "Plan", key: "plan", width: 24 },
     { header: "Compartido", key: "shared", width: 12 },
     { header: "Precio del plan", key: "planPrice", width: 16 },
+    // El descuento no rebaja el precio del plan: va aparte, para que se
+    // vea cuánto vale el lugar, cuánto se perdonó y cuánto se cobra.
+    { header: "Descuento", key: "discount", width: 12 },
+    { header: "Descuento ($)", key: "discountAmount", width: 14 },
+    { header: "Precio con descuento", key: "finalPrice", width: 20 },
     { header: "Monto reportado", key: "amount", width: 16 },
     { header: "Saldo pendiente", key: "balance", width: 16 },
     { header: "Estatus", key: "status", width: 14 },
@@ -171,9 +198,16 @@ export async function buildEventWorkbook({
       plan: r.plan_label,
       shared: r.is_shared ? "Sí" : "No",
       planPrice: Number(r.plan_price),
+      discount: describeDiscount(r),
+      // Fórmula y no número: si más tarde corrigen el precio del plan
+      // en la hoja, el descuento del 5% se recalcula solo.
+      discountAmount: { formula: discountFormula(r, col("planPrice"), rowNumber) },
+      finalPrice: {
+        formula: `${col("planPrice")}${rowNumber}-${col("discountAmount")}${rowNumber}`,
+      },
       amount: Number(r.amount_reported),
       balance: {
-        formula: `${col("planPrice")}${rowNumber}-${col("amount")}${rowNumber}`,
+        formula: `${col("finalPrice")}${rowNumber}-${col("amount")}${rowNumber}`,
       },
       status: REG_STATUS_LABEL[r.status] ?? r.status,
       reglamento: r.reglamento_accepted ? "Sí" : "No",
@@ -183,6 +217,8 @@ export async function buildEventWorkbook({
     });
 
     row.getCell("planPrice").numFmt = MONEY_FORMAT;
+    row.getCell("discountAmount").numFmt = MONEY_FORMAT;
+    row.getCell("finalPrice").numFmt = MONEY_FORMAT;
     row.getCell("amount").numFmt = MONEY_FORMAT;
     row.getCell("balance").numFmt = MONEY_FORMAT;
     row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
@@ -193,6 +229,8 @@ export async function buildEventWorkbook({
     `Registros!${col(key)}2:${col(key)}${regLastRow}`;
   const planRange = range("plan");
   const planPriceRange = range("planPrice");
+  const discountRange = range("discountAmount");
+  const finalPriceRange = range("finalPrice");
   const amountRange = range("amount");
   const statusRange = range("status");
 
@@ -332,10 +370,27 @@ export async function buildEventWorkbook({
   summary.getCell(`A${r}`).font = { bold: true };
   r++;
 
-  const expectedRow = r;
-  summary.getCell(`A${r}`).value = "Ingreso esperado (planes de registros no rechazados)";
+  // El precio de lista y los descuentos van en renglones propios: en un
+  // corte de caja no es lo mismo "se cobró menos" que "se decidió
+  // cobrar menos", y el segundo dato se pierde si sólo queda el total.
+  summary.getCell(`A${r}`).value = "Precio de lista (registros no rechazados)";
   summary.getCell(`B${r}`).value = {
     formula: `SUMIFS(${planPriceRange},${statusRange},"<>Rechazado")`,
+  };
+  summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+  r++;
+
+  summary.getCell(`A${r}`).value = "Descuentos otorgados";
+  summary.getCell(`B${r}`).value = {
+    formula: `SUMIFS(${discountRange},${statusRange},"<>Rechazado")`,
+  };
+  summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+  r++;
+
+  const expectedRow = r;
+  summary.getCell(`A${r}`).value = "Ingreso esperado (ya con descuentos)";
+  summary.getCell(`B${r}`).value = {
+    formula: `SUMIFS(${finalPriceRange},${statusRange},"<>Rechazado")`,
   };
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
@@ -370,7 +425,7 @@ export async function buildEventWorkbook({
 
   const planLabels = Array.from(
     new Map(
-      PRICING_PLANS.map((p) => [
+      plansForEvent(event.extra_plans).map((p) => [
         `${p.categoryLabel} · ${p.days} ${p.days === 1 ? "día" : "días"}`,
         true,
       ])
@@ -379,7 +434,7 @@ export async function buildEventWorkbook({
   planLabels.forEach((label) => {
     summary.getCell(`A${r}`).value = label;
     summary.getCell(`B${r}`).value = {
-      formula: `SUMIFS(${planPriceRange},${planRange},"${label}",${statusRange},"<>Rechazado")`,
+      formula: `SUMIFS(${finalPriceRange},${planRange},"${label}",${statusRange},"<>Rechazado")`,
     };
     summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
     r++;

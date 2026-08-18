@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { findRegistrationByFolio } from "@/lib/registrationLookup";
+import { finalPrice } from "@/lib/discount";
 
 export const runtime = "nodejs";
 
@@ -31,7 +32,9 @@ export async function POST(request: Request) {
     standId: registration.stand_id,
     businessName: registration.business_name,
     planLabel: registration.plan_label,
-    planPrice: Number(registration.plan_price),
+    // Lo que le toca pagar, ya con el descuento si el organizador se
+    // lo aplicó: pedirle el precio de lista sería cobrarle de más.
+    planPrice: finalPrice(registration),
     amountReported: Number(registration.amount_reported),
     status: registration.status,
   });

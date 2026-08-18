@@ -3,6 +3,7 @@ import { z } from "zod";
 import { findRegistrationByFolio } from "@/lib/registrationLookup";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ProofUploadError, uploadPaymentProof } from "@/lib/uploadPaymentProof";
+import { finalPrice } from "@/lib/discount";
 
 export const runtime = "nodejs";
 
@@ -98,6 +99,6 @@ export async function POST(request: Request) {
   return NextResponse.json({
     folioNumber: updated.folio_number,
     amountReported: Number(updated.amount_reported),
-    planPrice: Number(updated.plan_price),
+    planPrice: finalPrice(updated),
   });
 }
