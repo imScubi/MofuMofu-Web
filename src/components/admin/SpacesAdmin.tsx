@@ -332,7 +332,10 @@ export function SpacesAdmin({
                   {plan.shared ? " · compartido" : ""}
                 </span>
               </span>
-              <span className="w-[110px] font-mono text-ink-soft">
+              <span className="flex w-[110px] items-center font-mono text-ink-soft">
+                {/* El $ va fuera del campo: dentro lo tendrían que
+                    borrar cada vez que corrigen el precio. */}
+                <span aria-hidden="true">$</span>
                 <InlineEdit
                   ariaLabel={`Precio del plan ${plan.categoryLabel}`}
                   value={String(plan.price)}

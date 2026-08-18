@@ -125,6 +125,13 @@ export function RegistrationForm({
           .map((zone) => zone.label)
           .join(" o ")}.`
       : null;
+  // Si no queda ni un lugar, invitar a "tocar un espacio verde" es
+  // mandar a buscar algo que no está en el plano.
+  const hasFreeStand = eventStands.some(
+    (stand) =>
+      stand.status === "available" && isStandAllowed(zoneRules, stand.stand_id)
+  );
+
   const needsDayChoice = Boolean(selectedPlan && selectedPlan.days === 1 && days.length > 1);
 
   // Con una sola edición nunca existe el paso de elegirla: mostrarlo
@@ -443,7 +450,9 @@ export function RegistrationForm({
                   </p>
                 ))}
                 <p className="mt-2 text-sm text-ink-soft">
-                  Toca un espacio disponible (verde menta) para seleccionarlo.
+                  {hasFreeStand
+                    ? "Toca un espacio disponible (verde menta) para seleccionarlo."
+                    : "Ahora mismo no queda ningún lugar libre para este plan. Prueba con otro plan o escríbenos."}
                 </p>
                 <div className="mt-4">
                   <StandMap

@@ -108,7 +108,7 @@ function LockGlyph() {
 /** Lugar libre que no le toca a este plan: se ve apartado, no roto. */
 const LOCKED_STYLE: StatusStyle = {
   className: "bg-lavender-100/70 border-2 border-dashed border-lavender-500 text-lavender-500",
-  label: "Reservado para otro giro",
+  label: "No disponible para tu plan",
 };
 
 /** El glifo que va dentro del cuadro del stand, por estado. */
