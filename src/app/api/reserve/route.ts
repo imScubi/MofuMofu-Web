@@ -8,6 +8,8 @@ import {
 } from "@/lib/zones";
 import { uploadedObjectExists } from "@/lib/storagePaths";
 import { eventDays } from "@/lib/eventDays";
+import { sendFolioEmail } from "@/lib/email";
+import type { EventRow } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -18,7 +20,10 @@ const schema = z.object({
   businessName: z.string().trim().min(1).max(200),
   contactName: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(6).max(30),
-  email: z.string().trim().email().optional().or(z.literal("")),
+  // Obligatorio desde que el folio se manda por correo: sin
+  // dirección, el expositor se queda sin la única copia
+  // duradera del número que después le vamos a pedir.
+  email: z.string().trim().email(),
   instagram: z.string().trim().max(200).optional().or(z.literal("")),
   facebook: z.string().trim().max(200).optional().or(z.literal("")),
   tiktok: z.string().trim().max(200).optional().or(z.literal("")),
@@ -53,7 +58,7 @@ export async function POST(request: Request) {
     businessName: formData.get("businessName"),
     contactName: formData.get("contactName"),
     phone: formData.get("phone"),
-    email: formData.get("email") || "",
+    email: formData.get("email"),
     instagram: formData.get("instagram") || "",
     facebook: formData.get("facebook") || "",
     tiktok: formData.get("tiktok") || "",
@@ -95,9 +100,9 @@ export async function POST(request: Request) {
   // activados el expositor tuvo que aceptar esa cláusula.
   const { data: eventData } = await supabase
     .from("events")
-    .select(
-      "id, is_open, restricted_giros_enabled, date_start, date_end, extra_plans"
-    )
+    // Se pide el renglón completo porque el correo del folio necesita
+    // el nombre, la sede y la fecha límite, no sólo las banderas.
+    .select("*")
     .eq("id", payload.eventId)
     .maybeSingle();
 
@@ -263,5 +268,24 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json(data);
+  // El correo va al final y por su cuenta: el lugar ya quedó apartado y
+  // nada de lo que pase aquí puede cambiar eso. Si el proveedor falla,
+  // el folio sigue en la pantalla de confirmación.
+  let emailSent = false;
+  if (payload.email) {
+    emailSent = await sendFolioEmail({
+      to: payload.email,
+      folioNumber: data.folio_number,
+      standId: payload.standId,
+      businessName: payload.businessName,
+      contactName: payload.contactName,
+      planLabel: `${plan.categoryLabel} · ${plan.days} ${plan.days === 1 ? "día" : "días"}`,
+      totalDue: plan.price,
+      amountReported: payload.amountReported,
+      participationDay: payload.participationDay || null,
+      event: eventData as EventRow,
+    });
+  }
+
+  return NextResponse.json({ ...data, email_sent: emailSent });
 }

@@ -5,12 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { formatEventDates } from "@/lib/formatDates";
+import { EVENT_CONFIG } from "@/lib/eventConfig";
 import type { EventRow } from "@/lib/types";
 
 interface ConfirmationTicketProps {
   folio: number | null;
   standId: string | null;
   event: EventRow | null;
+  /** A dónde se mandó el folio; null si el correo no salió. */
+  emailedTo?: string | null;
 }
 
 /**
@@ -18,7 +21,12 @@ interface ConfirmationTicketProps {
  * pago, así que es lo más grande de la pantalla y se ve como un boleto:
  * en una captura de pantalla se distingue a la primera.
  */
-export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicketProps) {
+export function ConfirmationTicket({
+  folio,
+  standId,
+  event,
+  emailedTo,
+}: ConfirmationTicketProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyFolio() {
@@ -31,6 +39,19 @@ export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicket
       // Si el navegador bloquea el portapapeles, el número sigue visible.
     }
   }
+
+  // El mensaje va sin destinatario: wa.me sin número abre WhatsApp con
+  // el texto listo para que la persona escoja el chat.
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(
+    [
+      `Mi folio de ${EVENT_CONFIG.name} es ${folio}`,
+      standId ? `Stand #${standId}` : null,
+      event ? event.name : null,
+      "Lo necesito para completar mi pago.",
+    ]
+      .filter(Boolean)
+      .join(" · ")
+  )}`;
 
   const deadline = event
     ? new Date(event.payment_deadline + "T00:00:00").toLocaleDateString("es-MX", {
@@ -69,7 +90,9 @@ export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicket
             #{folio}
           </p>
           <p className="mt-2.5 text-[13px] font-semibold leading-[1.5] text-ink-soft">
-            Toma captura de pantalla. Lo necesitas para completar tu pago después.
+            {emailedTo
+              ? `Te lo mandamos a ${emailedTo}. Revisa tu bandeja y el correo no deseado.`
+              : "Toma captura de pantalla. Lo necesitas para completar tu pago después."}
           </p>
           <Button
             type="button"
@@ -113,6 +136,21 @@ export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicket
               </>
             )}
           </Button>
+
+          {/* Mandárselo por WhatsApp sin depender de ningún proveedor:
+              se abre la app con el mensaje ya escrito y la persona
+              elige a quién enviárselo, que suele ser a sí misma. */}
+          <a
+            href={whatsappUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-full border-2 border-mint-500 px-4 py-2.5 text-[15px] font-bold text-mint-500 transition-colors hover:bg-mint-100"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+              <path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 2a8 8 0 110 16 8 8 0 01-4.2-1.2l-.3-.2-2.5.7.7-2.4-.2-.3A8 8 0 0112 4zm-3.4 4c-.2 0-.4 0-.6.3-.2.3-.8.8-.8 1.9s.8 2.2.9 2.3c.1.2 1.6 2.5 4 3.4 2 .8 2.4.6 2.8.6.4 0 1.3-.5 1.5-1.1.2-.6.2-1 .1-1.1l-.5-.3-1.4-.7c-.2-.1-.4-.1-.5.1l-.7.9c-.1.2-.3.2-.5.1-.2-.1-1-.4-1.9-1.2-.7-.6-1.2-1.4-1.3-1.6-.1-.2 0-.3.1-.4l.4-.5.2-.4v-.4l-.7-1.6c-.2-.4-.4-.4-.5-.4h-.6z" />
+            </svg>
+            Guardarlo en WhatsApp
+          </a>
         </div>
       )}
 

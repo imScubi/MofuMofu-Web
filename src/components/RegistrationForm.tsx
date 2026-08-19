@@ -70,6 +70,7 @@ export function RegistrationForm({
   const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<number | null>(null);
+  const [emailedTo, setEmailedTo] = useState<string | null>(null);
 
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -78,6 +79,8 @@ export function RegistrationForm({
   const [instagram, setInstagram] = useState("");
   const [facebook, setFacebook] = useState("");
   const [tiktok, setTiktok] = useState("");
+  const [otherSocial, setOtherSocial] = useState("");
+  const [socialsOpen, setSocialsOpen] = useState(false);
   const [businessCategory, setBusinessCategory] = useState<string>(BUSINESS_CATEGORIES[0]);
   const [productDetails, setProductDetails] = useState("");
   const [logo, setLogo] = useState<File | null>(null);
@@ -183,6 +186,12 @@ export function RegistrationForm({
       setInfoError("Completa nombre del negocio, contacto y teléfono para continuar.");
       return;
     }
+    // Una revisión de andar por casa: no valida que el correo exista,
+    // sólo atrapa la errata evidente antes de mandar el folio al vacío.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      setInfoError("Escribe un correo válido: ahí te mandamos tu folio.");
+      return;
+    }
     if (!productDetails.trim()) {
       setInfoError("Describe qué productos vas a vender en tu stand.");
       return;
@@ -279,6 +288,7 @@ export function RegistrationForm({
     formData.set("instagram", instagram.trim());
     formData.set("facebook", facebook.trim());
     formData.set("tiktok", tiktok.trim());
+    formData.set("otherSocial", otherSocial.trim());
     formData.set("businessCategory", businessCategory);
     formData.set("productDetails", productDetails.trim());
     formData.set("participationDay", participationDay);
@@ -308,7 +318,13 @@ export function RegistrationForm({
       // Si el servidor devuelve HTML (p. ej. una página de error), res.json()
       // truena y perderíamos la causa: leemos texto y luego intentamos parsear.
       const raw = await res.text();
-      let data: { code?: string; message?: string; detail?: string; folio_number?: number } = {};
+      let data: {
+        code?: string;
+        message?: string;
+        detail?: string;
+        folio_number?: number;
+        email_sent?: boolean;
+      } = {};
       try {
         data = JSON.parse(raw);
       } catch {
@@ -339,6 +355,7 @@ export function RegistrationForm({
       }
 
       setFolio(data.folio_number);
+      setEmailedTo(data.email_sent ? email.trim() : null);
       setStep("done");
     } catch (err) {
       setError(
@@ -362,6 +379,7 @@ export function RegistrationForm({
         folio={folio}
         standId={selectedStandId}
         event={selectedEvent}
+        emailedTo={emailedTo}
       />
     );
   }
@@ -563,32 +581,84 @@ export function RegistrationForm({
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
-              <Field
-                label="Correo electrónico"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+              {/* Obligatorio desde que ahí llega el folio: es la única
+                  copia que le queda al expositor cuando cierre la
+                  pestaña de confirmación. */}
+              <div>
+                <Field
+                  label="Correo electrónico"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <p className={helpClass}>
+                  Ahí te mandamos tu folio, que es lo que te vamos a pedir para
+                  completar tu pago.
+                </p>
+              </div>
 
-              <div className="grid gap-5 sm:grid-cols-3">
-                <Field
-                  label="Instagram"
-                  placeholder="@usuario"
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                />
-                <Field
-                  label="Facebook"
-                  placeholder="usuario o link"
-                  value={facebook}
-                  onChange={(e) => setFacebook(e.target.value)}
-                />
-                <Field
-                  label="TikTok"
-                  placeholder="@usuario"
-                  value={tiktok}
-                  onChange={(e) => setTiktok(e.target.value)}
-                />
+              {/* Las redes son opcionales y siempre lo fueron, pero tres
+                  campos vacíos a media pantalla se leen como obligatorios.
+                  Plegadas, quien las tiene las abre y quien no, sigue. */}
+              <div>
+                {socialsOpen ? (
+                  <div className="rounded-2xl border-2 border-pink-100 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={labelClass}>
+                        Redes sociales del negocio (opcional)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSocialsOpen(false)}
+                        className="text-xs font-bold text-ink-soft underline underline-offset-2 hover:text-pink-700"
+                      >
+                        Ocultar
+                      </button>
+                    </div>
+                    <p className={helpClass}>
+                      Las usamos para etiquetarte cuando promocionemos el market.
+                      Pon las que tengas y deja en blanco las demás.
+                    </p>
+                    <div className="mt-3 grid gap-5 sm:grid-cols-3">
+                      <Field
+                        label="Instagram"
+                        placeholder="@usuario"
+                        value={instagram}
+                        onChange={(e) => setInstagram(e.target.value)}
+                      />
+                      <Field
+                        label="Facebook"
+                        placeholder="usuario o link"
+                        value={facebook}
+                        onChange={(e) => setFacebook(e.target.value)}
+                      />
+                      <Field
+                        label="TikTok"
+                        placeholder="@usuario"
+                        value={tiktok}
+                        onChange={(e) => setTiktok(e.target.value)}
+                      />
+                    </div>
+                    <div className="mt-5">
+                      <Field
+                        label="Otra red (opcional)"
+                        placeholder="Threads, X, tu página web…"
+                        value={otherSocial}
+                        onChange={(e) => setOtherSocial(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setSocialsOpen(true)}
+                    className="rounded-2xl border-2 border-dashed border-pink-100 px-4 py-3 text-sm font-bold text-pink-700 transition-colors hover:border-pink-300 hover:bg-pink-50"
+                  >
+                    + Agregar mis redes sociales{" "}
+                    <span className="font-normal text-ink-soft">(opcional)</span>
+                  </button>
+                )}
               </div>
 
               <div>

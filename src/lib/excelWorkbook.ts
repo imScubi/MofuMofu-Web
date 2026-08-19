@@ -176,6 +176,7 @@ export async function buildEventWorkbook({
     { header: "Instagram", key: "instagram", width: 18 },
     { header: "Facebook", key: "facebook", width: 18 },
     { header: "TikTok", key: "tiktok", width: 18 },
+    { header: "Otra red", key: "otherSocial", width: 20 },
     { header: "Giro del negocio", key: "category", width: 20 },
     { header: "Qué vende", key: "products", width: 34 },
     { header: "Día que participa", key: "day", width: 18 },
@@ -218,6 +219,7 @@ export async function buildEventWorkbook({
       instagram: r.instagram ?? "",
       facebook: r.facebook ?? "",
       tiktok: r.tiktok ?? "",
+      otherSocial: r.other_social ?? "",
       category: r.business_category,
       products: r.product_details ?? "",
       day: r.participation_day
