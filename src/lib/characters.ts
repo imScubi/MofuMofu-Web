@@ -112,6 +112,8 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     softColor: "#FFF1D6",
     friends: ["hanzo", "nyxie"],
     image: "/char-rakkun.webp",
+    imageWidth: 600,
+    imageHeight: 966,
   },
   charmy: {
     id: "charmy",
@@ -124,6 +126,8 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     softColor: "#E4F5EA",
     friends: ["kaini", "mimirosa"],
     image: "/char-charmy.webp",
+    imageWidth: 600,
+    imageHeight: 795,
   },
   nori: {
     id: "nori",
@@ -136,6 +140,8 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     softColor: "#FFF0EF",
     friends: ["mofu", "nyxie"],
     image: "/char-nori.webp",
+    imageWidth: 600,
+    imageHeight: 832,
   },
   kaini: {
     id: "kaini",
@@ -148,6 +154,8 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     softColor: "#E3F1FA",
     friends: ["hanzo", "charmy"],
     image: "/char-kaini.webp",
+    imageWidth: 600,
+    imageHeight: 929,
   },
 };
 
