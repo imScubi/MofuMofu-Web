@@ -112,9 +112,14 @@ export async function PATCH(
  * elimina sus comprobantes del Storage. Es irreversible — se usa para
  * limpiar registros de prueba o duplicados, no para rechazar (para eso
  * está PATCH con status "rejected", que conserva el historial).
+ *
+ * Si el expositor ya había pagado, la baja se anota antes en `refunds`
+ * con `?refunded=<monto>`: sin ese rastro el dinero que entró y salió
+ * desaparecería de las cuentas como si nunca hubiera existido, y lo que
+ * el evento haya retenido se perdería con él.
  */
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   if (!(await isAdminAuthenticated())) {
@@ -132,6 +137,51 @@ export async function DELETE(
 
   if (fetchError || !registration) {
     return NextResponse.json({ message: "Registro no encontrado." }, { status: 404 });
+  }
+
+  // El reembolso se anota ANTES de borrar: si se guardara después y
+  // algo fallara, quedaría un registro borrado sin rastro del dinero.
+  const params_ = new URL(request.url).searchParams;
+  const refundedRaw = params_.get("refunded");
+  if (refundedRaw !== null) {
+    const refunded = Number(refundedRaw);
+    const paid = Number(registration.amount_reported) || 0;
+
+    if (!Number.isFinite(refunded) || refunded < 0) {
+      return NextResponse.json(
+        { message: "El monto devuelto no es válido." },
+        { status: 400 }
+      );
+    }
+    if (refunded > paid) {
+      return NextResponse.json(
+        {
+          message: `No puedes devolver más de lo que reportó pagado ($${paid}).`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const { error: refundError } = await supabase.from("refunds").insert({
+      event_id: registration.event_id,
+      folio_number: registration.folio_number,
+      stand_id: registration.stand_id,
+      business_name: registration.business_name,
+      contact_name: registration.contact_name,
+      phone: registration.phone,
+      plan_label: registration.plan_label,
+      amount_paid: paid,
+      amount_refunded: refunded,
+      note: params_.get("note")?.slice(0, 300) || null,
+    });
+
+    if (refundError) {
+      console.error("refund insert error", refundError);
+      return NextResponse.json(
+        { message: "No pudimos anotar la devolución, así que no borré nada." },
+        { status: 500 }
+      );
+    }
   }
 
   const { error: deleteError } = await supabase

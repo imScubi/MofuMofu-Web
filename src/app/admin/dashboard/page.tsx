@@ -3,7 +3,12 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { AdminDashboard } from "@/components/admin/AdminDashboard";
 import { Card } from "@/components/ui/Card";
-import type { EventRow, EventStandRow, RegistrationRow } from "@/lib/types";
+import type {
+  EventRow,
+  EventStandRow,
+  RefundRow,
+  RegistrationRow,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -50,14 +55,20 @@ export default async function AdminDashboardPage({
     events.find((e) => e.is_open) ??
     events[0];
 
-  const [{ data: stands }, { data: registrations }] = await Promise.all([
-    supabase.from("event_stands").select("*").eq("event_id", selectedEvent.id),
-    supabase
-      .from("registrations")
-      .select("*")
-      .eq("event_id", selectedEvent.id)
-      .order("created_at", { ascending: false }),
-  ]);
+  const [{ data: stands }, { data: registrations }, { data: refunds }] =
+    await Promise.all([
+      supabase.from("event_stands").select("*").eq("event_id", selectedEvent.id),
+      supabase
+        .from("registrations")
+        .select("*")
+        .eq("event_id", selectedEvent.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("refunds")
+        .select("*")
+        .eq("event_id", selectedEvent.id)
+        .order("created_at", { ascending: false }),
+    ]);
 
   return (
     <main className="flex-1 px-4 py-8 sm:px-8">
@@ -66,6 +77,7 @@ export default async function AdminDashboardPage({
         selectedEvent={selectedEvent}
         initialStands={(stands as EventStandRow[]) ?? []}
         initialRegistrations={(registrations as RegistrationRow[]) ?? []}
+        initialRefunds={(refunds as RefundRow[]) ?? []}
       />
     </main>
   );

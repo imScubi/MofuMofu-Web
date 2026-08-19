@@ -17,6 +17,7 @@ import type {
   EventRow,
   EventStandRow,
   RegistrationRow,
+  RefundRow,
   SurveyResponseRow,
   SurveyRow,
 } from "@/lib/types";
@@ -114,6 +115,8 @@ export interface EventWorkbookData {
   contestEntries: ContestEntryRow[];
   surveys: SurveyRow[];
   surveyResponses: SurveyResponseRow[];
+  /** Bajas con devolución: dinero que entró y volvió a salir. */
+  refunds: RefundRow[];
 }
 
 /**
@@ -132,6 +135,7 @@ export async function buildEventWorkbook({
   contestEntries,
   surveys,
   surveyResponses,
+  refunds,
 }: EventWorkbookData): Promise<ExcelJS.Workbook> {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = EVENT_CONFIG.name;
@@ -380,6 +384,71 @@ export async function buildEventWorkbook({
   });
 
   // ---------------------------------------------------------------
+  // Hoja "Bajas y devoluciones"
+  //
+  // Un expositor dado de baja ya no está en "Registros", así que sin
+  // esta hoja el dinero que pagó y se le devolvió no aparecería en
+  // ningún lado — y lo que el evento haya retenido tampoco.
+  // ---------------------------------------------------------------
+  let refundRange = "";
+  let keptRange = "";
+  let refundsLastRow = 1;
+
+  if (refunds.length > 0) {
+    const refundSheet = workbook.addWorksheet("Bajas y devoluciones");
+    refundSheet.columns = [
+      { header: "Folio", key: "folio", width: 9 },
+      { header: "Stand", key: "stand", width: 8 },
+      { header: "Negocio", key: "business", width: 24 },
+      { header: "Contacto", key: "contact", width: 20 },
+      { header: "Teléfono", key: "phone", width: 16 },
+      { header: "Plan", key: "plan", width: 24 },
+      { header: "Había pagado", key: "paid", width: 16 },
+      { header: "Se le devolvió", key: "refunded", width: 16 },
+      { header: "Retuvo el evento", key: "kept", width: 18 },
+      { header: "Nota", key: "note", width: 34 },
+      { header: "Fecha de la baja", key: "createdAt", width: 18 },
+    ];
+    refundSheet.getRow(1).font = { bold: true };
+
+    const refundCol = (key: string) => refundSheet.getColumn(key).letter;
+
+    refunds.forEach((refund) => {
+      const rowNumber = refundSheet.rowCount + 1;
+      const paid = Number(refund.amount_paid);
+      const returned = Number(refund.amount_refunded);
+
+      const row = refundSheet.addRow({
+        folio: refund.folio_number,
+        stand: refund.stand_id,
+        business: refund.business_name,
+        contact: refund.contact_name ?? "",
+        phone: refund.phone ?? "",
+        plan: refund.plan_label ?? "",
+        paid,
+        refunded: returned,
+        kept: calc(
+          `${refundCol("paid")}${rowNumber}-${refundCol("refunded")}${rowNumber}`,
+          paid - returned
+        ),
+        note: refund.note ?? "",
+        createdAt: new Date(refund.created_at),
+      });
+
+      row.getCell("paid").numFmt = MONEY_FORMAT;
+      row.getCell("refunded").numFmt = MONEY_FORMAT;
+      row.getCell("kept").numFmt = MONEY_FORMAT;
+      row.getCell("createdAt").numFmt = "dd/mm/yyyy hh:mm";
+    });
+
+    refundsLastRow = Math.max(refunds.length + 1, 2);
+    const refundRangeOf = (key: string) =>
+      `'Bajas y devoluciones'!${refundCol(key)}2:${refundCol(key)}${refundsLastRow}`;
+    refundRange = refundRangeOf("refunded");
+    keptRange = refundRangeOf("kept");
+  }
+
+  // ---------------------------------------------------------------
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores
   // ---------------------------------------------------------------
   const summary = workbook.addWorksheet("Resumen");
@@ -508,6 +577,48 @@ export async function buildEventWorkbook({
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   summary.getCell(`B${r}`).font = { bold: true };
   r += 2;
+
+  // Las bajas van en su propio bloque, separadas de lo que se espera
+  // cobrar: mezclarlas escondería que ese dinero entró y volvió a salir.
+  if (refunds.length > 0) {
+    const totalRefunded = refunds.reduce(
+      (total, refund) => total + Number(refund.amount_refunded),
+      0
+    );
+    const totalKept = refunds.reduce(
+      (total, refund) =>
+        total + (Number(refund.amount_paid) - Number(refund.amount_refunded)),
+      0
+    );
+
+    summary.getCell(`A${r}`).value = "Bajas con devolución";
+    summary.getCell(`A${r}`).font = { bold: true };
+    r++;
+
+    summary.getCell(`A${r}`).value = `Expositores dados de baja`;
+    summary.getCell(`B${r}`).value = refunds.length;
+    r++;
+
+    summary.getCell(`A${r}`).value = "Devuelto a expositores (salió de caja)";
+    summary.getCell(`B${r}`).value = calc(`SUM(${refundRange})`, totalRefunded);
+    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+    r++;
+
+    const keptRow = r;
+    summary.getCell(`A${r}`).value = "Retenido de esas bajas (se quedó en caja)";
+    summary.getCell(`B${r}`).value = calc(`SUM(${keptRange})`, totalKept);
+    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+    r++;
+
+    summary.getCell(`A${r}`).value = "En caja (recaudado + retenido)";
+    summary.getCell(`B${r}`).value = calc(
+      `B${collectedRow}+B${keptRow}`,
+      totalCollected + totalKept
+    );
+    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+    summary.getCell(`B${r}`).font = { bold: true };
+    r += 2;
+  }
 
   summary.getCell(`A${r}`).value = "Desglose por plan (registros no rechazados)";
   summary.getCell(`A${r}`).font = { bold: true };

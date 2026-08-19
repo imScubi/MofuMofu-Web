@@ -7,6 +7,7 @@ import type {
   ContestRow,
   EventRow,
   EventStandRow,
+  RefundRow,
   RegistrationRow,
   SurveyResponseRow,
   SurveyRow,
@@ -47,6 +48,7 @@ export async function GET(request: Request) {
     { data: entriesData },
     { data: surveysData },
     { data: surveyResponsesData },
+    { data: refundsData },
   ] = await Promise.all([
     supabase.from("event_stands").select("*").eq("event_id", event.id).order("stand_id"),
     supabase
@@ -66,6 +68,7 @@ export async function GET(request: Request) {
       .select("*")
       .eq("event_id", event.id)
       .order("created_at"),
+    supabase.from("refunds").select("*").eq("event_id", event.id).order("created_at"),
   ]);
 
   const workbook = await buildEventWorkbook({
@@ -76,6 +79,7 @@ export async function GET(request: Request) {
     contestEntries: (entriesData as ContestEntryRow[]) ?? [],
     surveys: (surveysData as SurveyRow[]) ?? [],
     surveyResponses: (surveyResponsesData as SurveyResponseRow[]) ?? [],
+    refunds: (refundsData as RefundRow[]) ?? [],
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

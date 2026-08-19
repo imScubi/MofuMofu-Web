@@ -88,6 +88,29 @@ export interface RegistrationRow {
   updated_at: string;
 }
 
+/**
+ * La baja de un expositor al que se le devolvió su dinero.
+ *
+ * Guarda una copia de sus datos porque el registro se borra: sin esto,
+ * el dinero que entró y salió no dejaría rastro en ningún lado.
+ */
+export interface RefundRow {
+  id: string;
+  event_id: string;
+  folio_number: number;
+  stand_id: string;
+  business_name: string;
+  contact_name: string | null;
+  phone: string | null;
+  plan_label: string | null;
+  /** Lo que había reportado pagado. */
+  amount_paid: number;
+  /** Lo que se le devolvió; la diferencia se la quedó el evento. */
+  amount_refunded: number;
+  note: string | null;
+  created_at: string;
+}
+
 /** Una convocatoria (concurso) dentro de una edición. */
 export interface ContestRow {
   id: string;

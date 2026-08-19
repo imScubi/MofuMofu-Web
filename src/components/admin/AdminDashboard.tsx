@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { InlineEdit } from "@/components/admin/InlineEdit";
 import { DiscountCell } from "@/components/admin/DiscountCell";
+import { DeleteRegistration } from "@/components/admin/DeleteRegistration";
 import { discountAmount, finalPrice } from "@/lib/discount";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import { formatEventDates } from "@/lib/formatDates";
@@ -16,6 +17,7 @@ import { logoPublicUrl } from "@/lib/logoUrl";
 import type {
   EventRow,
   EventStandRow,
+  RefundRow,
   RegistrationRow,
   RegistrationStatus,
 } from "@/lib/types";
@@ -25,6 +27,8 @@ interface AdminDashboardProps {
   selectedEvent: EventRow;
   initialStands: EventStandRow[];
   initialRegistrations: RegistrationRow[];
+  /** Bajas con devolución: el dinero que entró y volvió a salir. */
+  initialRefunds: RefundRow[];
 }
 
 const STATUS_LABEL: Record<RegistrationStatus, string> = {
@@ -54,13 +58,14 @@ export function AdminDashboard({
   selectedEvent,
   initialStands,
   initialRegistrations,
+  initialRefunds,
 }: AdminDashboardProps) {
   const router = useRouter();
   const [stands, setStands] = useState(initialStands);
   const [registrations, setRegistrations] = useState(initialRegistrations);
+  const [refunds, setRefunds] = useState(initialRefunds);
   const [filter, setFilter] = useState<"all" | RegistrationStatus>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   // Sincroniza el estado local cuando el servidor manda props nuevas
   // (tras un router.refresh()). Se ajusta durante el render, no en un
@@ -75,6 +80,11 @@ export function AdminDashboard({
   if (initialStands !== syncedStands) {
     setSyncedStands(initialStands);
     setStands(initialStands);
+  }
+  const [syncedRefunds, setSyncedRefunds] = useState(initialRefunds);
+  if (initialRefunds !== syncedRefunds) {
+    setSyncedRefunds(initialRefunds);
+    setRefunds(initialRefunds);
   }
 
   // "event_stands" es de lectura pública, así que sí llega por Realtime
@@ -128,6 +138,15 @@ export function AdminDashboard({
     const expected = listPrice - discounts;
     const collected = live.reduce((sum, r) => sum + Number(r.amount_reported), 0);
 
+    // Las bajas con devolución ya no están en `registrations`, así que
+    // su dinero hay que traerlo de aquí: lo devuelto salió de la caja y
+    // lo retenido se quedó, y sin sumarlo el corte queda corto.
+    const refunded = refunds.reduce((sum, x) => sum + Number(x.amount_refunded), 0);
+    const kept = refunds.reduce(
+      (sum, x) => sum + (Number(x.amount_paid) - Number(x.amount_refunded)),
+      0
+    );
+
     return {
       total: reservable.length,
       sold,
@@ -137,9 +156,12 @@ export function AdminDashboard({
       discounts,
       expected,
       collected,
+      refunded,
+      kept,
+      inCash: collected + kept,
       balance: expected - collected,
     };
-  }, [stands, registrations]);
+  }, [stands, registrations, refunds]);
 
   const filtered = registrations.filter(
     (r) => filter === "all" || r.status === filter
@@ -218,10 +240,27 @@ export function AdminDashboard({
     );
   }
 
-  async function deleteRegistration(id: string) {
+  /**
+   * Da de baja a un expositor. Con `refunded` distinto de null, la
+   * devolución se anota antes de borrar: es lo que mantiene honestas
+   * las cuentas cuando el dinero entró y volvió a salir.
+   */
+  async function deleteRegistration(
+    id: string,
+    refunded: number | null,
+    note: string
+  ) {
     setBusyId(id);
     try {
-      const res = await fetch(`/api/admin/registrations/${id}`, { method: "DELETE" });
+      const query = new URLSearchParams();
+      if (refunded !== null) {
+        query.set("refunded", String(refunded));
+        if (note) query.set("note", note);
+      }
+      const res = await fetch(
+        `/api/admin/registrations/${id}${query.size > 0 ? `?${query}` : ""}`,
+        { method: "DELETE" }
+      );
       if (res.ok) {
         const reg = registrations.find((r) => r.id === id);
         setRegistrations((prev) => prev.filter((r) => r.id !== id));
@@ -232,10 +271,12 @@ export function AdminDashboard({
             )
           );
         }
+        // La devolución la acaba de crear el servidor; se recarga para
+        // que aparezca en los totales con su id y su fecha de verdad.
+        if (refunded !== null) router.refresh();
       }
     } finally {
       setBusyId(null);
-      setConfirmDeleteId(null);
     }
   }
 
@@ -327,6 +368,23 @@ export function AdminDashboard({
           tone="pink"
         />
       </div>
+
+      {/* Sólo aparece cuando hay bajas con devolución: si no, sería una
+          fila de ceros ocupando la pantalla todo el tiempo. */}
+      {refunds.length > 0 && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <StatCard
+            label={`Devuelto a ${refunds.length} ${refunds.length === 1 ? "baja" : "bajas"}`}
+            value={formatMoney(stats.refunded)}
+          />
+          <StatCard label="Retenido de esas bajas" value={formatMoney(stats.kept)} />
+          <StatCard
+            label="En caja (recaudado + retenido)"
+            value={formatMoney(stats.inCash)}
+            tone="mint"
+          />
+        </div>
+      )}
 
       <div className="mt-8 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
@@ -457,36 +515,7 @@ export function AdminDashboard({
                   </div>
                 </Td>
                 <Td>
-                  {confirmDeleteId === r.id ? (
-                    <div className="min-w-[190px] rounded-xl bg-danger-50 p-2">
-                      <p className="text-xs font-bold text-danger-600">
-                        ¿Borrar el folio #{r.folio_number} para siempre?
-                      </p>
-                      <p className="mt-0.5 text-[11px] text-danger-600">
-                        Se libera el stand #{r.stand_id} y se borran sus comprobantes.
-                      </p>
-                      <div className="mt-2 flex gap-2">
-                        <Button
-                          size="md"
-                          variant="danger"
-                          disabled={busyId === r.id}
-                          onClick={() => deleteRegistration(r.id)}
-                          className="!px-3 !py-1 text-xs"
-                        >
-                          Sí, borrar
-                        </Button>
-                        <Button
-                          size="md"
-                          variant="ghost"
-                          onClick={() => setConfirmDeleteId(null)}
-                          className="!px-3 !py-1 text-xs"
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2">
                       <Button
                         size="md"
                         variant="secondary"
@@ -517,16 +546,18 @@ export function AdminDashboard({
                       >
                         Dar de baja
                       </Button>
-                      <button
-                        type="button"
-                        disabled={busyId === r.id}
-                        onClick={() => setConfirmDeleteId(r.id)}
-                        className="text-xs text-ink-soft underline hover:text-danger-600 disabled:opacity-40"
-                      >
-                        Borrar
-                      </button>
-                    </div>
-                  )}
+                      {/* Eliminar de verdad, a diferencia de "Dar de
+                          baja" de arriba: borra el registro y, si el
+                          expositor ya había pagado, pide anotar cuánto
+                          se le devolvió antes de que desaparezca. */}
+                      <DeleteRegistration
+                        registration={r}
+                        busy={busyId === r.id}
+                        onDelete={(refunded, note) =>
+                          deleteRegistration(r.id, refunded, note)
+                        }
+                      />
+                  </div>
                 </Td>
               </tr>
             ))}
