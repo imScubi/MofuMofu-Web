@@ -42,7 +42,7 @@ export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicket
   return (
     <div className="mofu-confetti mx-auto max-w-[420px] overflow-hidden rounded-[26px] border border-pink-100 bg-pink-50 px-4 py-6 shadow-[0_24px_50px_-30px_rgba(58,43,51,0.5)] sm:max-w-lg sm:px-6">
       <Image
-        src="/char-conejita.webp"
+        src="/char-mofu.webp"
         alt=""
         aria-hidden="true"
         width={600}

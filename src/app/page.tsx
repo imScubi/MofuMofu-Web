@@ -22,6 +22,8 @@ import {
   StarShape,
 } from "@/components/ui/Decorations";
 import type { ContestRow, EventRow } from "@/lib/types";
+import { CharacterPortrait } from "@/components/CharacterPortrait";
+import { CHARACTER_IDS } from "@/lib/characters";
 
 export const dynamic = "force-dynamic";
 
@@ -167,7 +169,7 @@ export default async function Home() {
           </div>
 
           <Image
-            src="/char-gato.webp"
+            src="/char-nyxie.webp"
             alt=""
             aria-hidden="true"
             width={600}
@@ -268,8 +270,8 @@ export default async function Home() {
       <section className="px-5 py-14 sm:py-20">
         <div className="mx-auto max-w-5xl">
           <div className="flex items-end justify-center gap-3">
-            <Character name="camaleon" size={92} />
-            <Character name="raton" size={104} />
+            <Character name="hanzo" size={92} />
+            <Character name="mimirosa" size={104} />
           </div>
           <h2 className="mt-1 text-center font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
             Cómo funciona
@@ -291,6 +293,36 @@ export default async function Home() {
                 </p>
               </Card>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* El test: es lo que la gente comparte, y cada resultado
+          compartido trae a alguien nuevo a esta misma página. */}
+      <section className="bg-lavender-100/50 px-5 py-14 sm:py-20">
+        <div className="mx-auto max-w-3xl text-center">
+          <div className="flex flex-wrap items-end justify-center gap-1.5">
+            {CHARACTER_IDS.map((id) => (
+              <CharacterPortrait key={id} id={id} size={54} />
+            ))}
+          </div>
+          <h2 className="mt-5 font-heading text-2xl font-bold text-ink sm:text-3xl">
+            ¿Qué personaje de PuffiLand eres?
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-ink-soft">
+            Ocho amigos cayeron aquí por un portal que Nyxie abrió sin querer.
+            Veinte preguntas y sabemos a cuál te pareces — y con quién de ellos
+            te llevarías increíble.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Link href="/test">
+              <Button size="lg">Hacer el test</Button>
+            </Link>
+            <Link href="/test/todos">
+              <Button size="lg" variant="secondary">
+                Conocer a los ocho
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
@@ -345,7 +377,7 @@ export default async function Home() {
 
       <section className="px-5 pb-20 pt-14">
         <Card className="mx-auto max-w-3xl border-lavender-300 bg-lavender-100/60 p-8 text-center">
-          <Character name="conejita" size={112} className="mx-auto" />
+          <Character name="mofu" size={112} className="mx-auto" />
           <h2 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¿Dudas sobre tu registro?
           </h2>

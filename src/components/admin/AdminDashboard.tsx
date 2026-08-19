@@ -344,6 +344,9 @@ export function AdminDashboard({
           <Link href={`/admin/dashboard/plan?event=${selectedEvent.id}`}>
             <Button variant="ghost">Plan logístico 📋</Button>
           </Link>
+          <Link href="/admin/dashboard/test">
+            <Button variant="ghost">Test de personaje 🔮</Button>
+          </Link>
           <a href={`/api/admin/export-excel?event=${selectedEvent.id}`}>
             <Button variant="secondary">Descargar Excel</Button>
           </a>

@@ -1,20 +1,24 @@
 import Image from "next/image";
 import clsx from "clsx";
+import { CHARACTERS, type CharacterId } from "@/lib/characters";
 
-// Los personajes son decoración: van con alt vacío y aria-hidden para
-// que un lector de pantalla no lea "gato, ratón, camaleón" antes de cada
-// formulario. Las medidas reales evitan que la página salte al cargar.
-const CHARACTERS = {
-  gato: { src: "/char-gato.webp", width: 600, height: 786 },
-  conejita: { src: "/char-conejita.webp", width: 600, height: 879 },
-  raton: { src: "/char-raton.webp", width: 600, height: 802 },
-  camaleon: { src: "/char-camaleon.webp", width: 600, height: 578 },
-} as const;
-
-export type CharacterName = keyof typeof CHARACTERS;
+/**
+ * Un personaje del elenco, como decoración.
+ *
+ * Van con alt vacío y aria-hidden a propósito: un lector de pantalla no
+ * tiene por qué leer "Nyxie, Mofu, Hanzo" antes de cada formulario.
+ *
+ * Se llaman por su nombre, no por su especie. El archivo que antes se
+ * llamaba "camaleon" era en realidad Hanzo, el sapo, y la camaleona de
+ * verdad es Charmy — ese enredo ya costó una confusión.
+ *
+ * Si un personaje todavía no tiene ilustración no se dibuja nada: es
+ * decoración, y una imagen rota se ve peor que su ausencia.
+ */
+export type CharacterName = CharacterId;
 
 interface CharacterProps {
-  name: CharacterName;
+  name: CharacterId;
   /** Ancho en píxeles; la altura sale sola de la proporción. */
   size?: number;
   /** Flota suavemente (se apaga solo con prefers-reduced-motion). */
@@ -31,13 +35,17 @@ export function Character({
   priority,
 }: CharacterProps) {
   const character = CHARACTERS[name];
+  if (!character?.image || !character.imageWidth || !character.imageHeight) {
+    return null;
+  }
+
   return (
     <Image
-      src={character.src}
+      src={character.image}
       alt=""
       aria-hidden="true"
-      width={character.width}
-      height={character.height}
+      width={character.imageWidth}
+      height={character.imageHeight}
       priority={priority}
       style={{ width: size, height: "auto" }}
       className={clsx("h-auto max-w-full", float && "mofu-float", className)}

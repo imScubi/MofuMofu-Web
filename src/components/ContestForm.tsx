@@ -35,18 +35,19 @@ interface ContestFormProps {
 // campo condicionado que se oculta con la condición apagada haría que el
 // navegador bloqueara el envío sin decir por qué.
 
-// Cada convocatoria tiene su anfitrión, para que las cuatro no se sientan
-// el mismo formulario con distinto título.
+// Cada convocatoria tiene su anfitrión, y no al azar: Kaini vive para
+// las coreografías, a Hanzo lo atrapó el anime en cuanto llegó, y
+// Rakkun es el del TCG. Mofu recibe lo demás, como en todo.
 const HOST_BY_TYPE: Record<string, CharacterName> = {
-  dance_cover: "gato",
-  cosplay: "conejita",
-  tcg: "camaleon",
-  otro: "raton",
+  dance_cover: "kaini",
+  cosplay: "hanzo",
+  tcg: "rakkun",
+  otro: "mofu",
 };
 
 export function ContestForm({ contest, event }: ContestFormProps) {
   const type = getContestType(contest.type);
-  const host = HOST_BY_TYPE[type.id] ?? "raton";
+  const host = HOST_BY_TYPE[type.id] ?? "mofu";
   const availability = contestAvailability(contest);
 
   const [participantName, setParticipantName] = useState("");

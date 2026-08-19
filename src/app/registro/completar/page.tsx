@@ -131,7 +131,7 @@ export default function CompletarPagoPage() {
     return (
       <main className="flex-1 px-4 py-14">
         <Card className="mofu-confetti mx-auto max-w-lg p-8 text-center">
-          <Character name="conejita" size={124} className="mx-auto" />
+          <Character name="mofu" size={124} className="mx-auto" />
           <h1 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¡Pago agregado a tu registro!
           </h1>
@@ -152,7 +152,7 @@ export default function CompletarPagoPage() {
   return (
     <main className="flex-1 px-4 py-14">
       <div className="mx-auto mb-8 max-w-lg text-center">
-        <Character name="gato" size={120} className="mx-auto" priority />
+        <Character name="nyxie" size={120} className="mx-auto" priority />
         <h1 className="mt-1 font-heading text-[34px] font-extrabold leading-[1.05] tracking-[-0.01em] text-ink">
           Completar mi pago
         </h1>

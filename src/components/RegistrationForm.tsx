@@ -383,7 +383,7 @@ export function RegistrationForm({
                 Cada edición tiene sus propias fechas y su propio mapa de stands.
               </p>
             </div>
-            <Character name="camaleon" size={74} className="hidden shrink-0 sm:block" />
+            <Character name="hanzo" size={74} className="hidden shrink-0 sm:block" />
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             {events.map((event) => (
@@ -430,7 +430,7 @@ export function RegistrationForm({
                   : ""}
               </p>
             </div>
-            <Character name="gato" size={78} className="hidden shrink-0 sm:block" />
+            <Character name="nyxie" size={78} className="hidden shrink-0 sm:block" />
           </div>
 
           {/* El plan va antes que el mapa: cuando la edición tiene zonas
@@ -539,7 +539,7 @@ export function RegistrationForm({
                 <h2 className="font-heading text-xl font-bold text-ink">
                   Cuéntanos de tu negocio
                 </h2>
-                <Character name="raton" size={74} className="hidden shrink-0 sm:block" />
+                <Character name="mimirosa" size={74} className="hidden shrink-0 sm:block" />
               </div>
 
               <Field
@@ -768,7 +768,7 @@ export function RegistrationForm({
                 <h2 className="font-heading text-2xl font-bold leading-[1.15] text-ink">
                   Confirma tu pago
                 </h2>
-                <Character name="conejita" size={76} className="hidden shrink-0 sm:block" />
+                <Character name="mofu" size={76} className="hidden shrink-0 sm:block" />
               </div>
 
               <div className="grid gap-4 sm:grid-cols-[1.1fr_1fr]">

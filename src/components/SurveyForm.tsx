@@ -100,7 +100,7 @@ export function SurveyForm({ survey, event }: SurveyFormProps) {
   if (sent) {
     return (
       <Card className="mofu-confetti mx-auto max-w-lg p-6 text-center sm:p-8">
-        <Character name="conejita" size={128} className="mx-auto" priority />
+        <Character name="mofu" size={128} className="mx-auto" priority />
         <h2 className="mt-2 font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
           ¡Gracias por tu tiempo!
         </h2>
@@ -109,8 +109,8 @@ export function SurveyForm({ survey, event }: SurveyFormProps) {
           siguiente edición salga mejor.
         </p>
         <div className="mt-4 flex justify-center gap-3">
-          <Character name="raton" size={72} />
-          <Character name="camaleon" size={80} />
+          <Character name="mimirosa" size={72} />
+          <Character name="hanzo" size={80} />
         </div>
         <Link href="/" className="mt-5 block">
           <Button variant="secondary" className="w-full">
@@ -124,7 +124,7 @@ export function SurveyForm({ survey, event }: SurveyFormProps) {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-5 text-center">
-        <Character name="gato" size={128} className="mx-auto" priority />
+        <Character name="nyxie" size={128} className="mx-auto" priority />
         <h1 className="mt-1 font-heading text-[27px] font-extrabold leading-[1.12] text-ink">
           {survey.title}
         </h1>
@@ -170,8 +170,8 @@ export function SurveyForm({ survey, event }: SurveyFormProps) {
       </form>
 
       <div className="mt-6 flex items-end justify-center gap-4 opacity-90">
-        <Character name="raton" size={76} />
-        <Character name="camaleon" size={88} />
+        <Character name="mimirosa" size={76} />
+        <Character name="hanzo" size={88} />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@/lib/supabase/client";
 import { contestAvailability } from "@/lib/contestStatus";
 import { absoluteUrl } from "@/lib/site";
+import { CHARACTER_IDS } from "@/lib/characters";
 import type { ContestRow, EventRow } from "@/lib/types";
 
 export const revalidate = 3600;
@@ -16,6 +17,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: absoluteUrl("/"), changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl("/registro"), changeFrequency: "weekly", priority: 0.9 },
     { url: absoluteUrl("/convocatorias"), changeFrequency: "weekly", priority: 0.8 },
+    { url: absoluteUrl("/test"), changeFrequency: "monthly", priority: 0.8 },
+    { url: absoluteUrl("/test/todos"), changeFrequency: "monthly", priority: 0.5 },
+    // Cada personaje es un link que la gente comparte; conviene que
+    // Google los conozca porque son puerta de entrada al sitio.
+    ...CHARACTER_IDS.map((id) => ({
+      url: absoluteUrl(`/test/${id}`),
+      changeFrequency: "monthly" as const,
+      priority: 0.4,
+    })),
     {
       url: absoluteUrl("/registro/completar"),
       changeFrequency: "monthly",
