@@ -91,7 +91,7 @@ export function PersonalityQuiz() {
           completa empuja la pregunta debajo del pliegue en cada paso. */}
       {answered === 0 ? (
         <div className="mb-8 text-center">
-          <Character name="mofu" size={104} className="mx-auto" priority />
+          <Character name="mofu" size={146} className="mx-auto" priority />
           <FlowerShape className="mx-auto mt-1 h-8 w-8" />
           <h1 className="mt-2 font-heading text-[27px] font-bold leading-tight text-ink sm:text-4xl">
             ¿Qué personaje de MofuMofu eres?
@@ -171,7 +171,7 @@ export function PersonalityQuiz() {
             <CharacterPortrait
               key={character.id}
               id={character.id}
-              size={46}
+              size={64}
               className="opacity-45 grayscale transition-all duration-300 hover:opacity-100 hover:grayscale-0"
             />
           ))}

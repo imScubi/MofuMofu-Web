@@ -1,13 +1,17 @@
 import Image from "next/image";
 import clsx from "clsx";
-import { CHARACTERS, monogram, type CharacterId } from "@/lib/characters";
+import { CHARACTERS, type CharacterId } from "@/lib/characters";
+import { CHARACTER_IMAGES, heightBox } from "@/lib/characterImages";
 
 /**
  * El retrato de un personaje en el test.
  *
  * A diferencia del componente decorativo, éste sí lleva alt: aquí el
- * personaje ES la información, no el adorno. Y mientras alguno no tenga
- * ilustración, enseña un monograma con su color en vez de un hueco.
+ * personaje ES la información, no el adorno.
+ *
+ * El tamaño es la altura, no el ancho: es lo que hace que en una fila de
+ * ocho todos se vean del mismo porte aunque Hanzo sea achaparrado y
+ * Rakkun larguirucho.
  */
 export function CharacterPortrait({
   id,
@@ -16,43 +20,21 @@ export function CharacterPortrait({
   priority,
 }: {
   id: CharacterId;
+  /** Altura en píxeles; el ancho sale de la proporción del archivo. */
   size?: number;
   className?: string;
   priority?: boolean;
 }) {
   const character = CHARACTERS[id];
-
-  if (character.image && character.imageWidth && character.imageHeight) {
-    return (
-      <Image
-        src={character.image}
-        alt={`${character.name}, ${character.species.toLowerCase()}`}
-        width={character.imageWidth}
-        height={character.imageHeight}
-        priority={priority}
-        style={{ width: size, height: "auto" }}
-        className={clsx("h-auto max-w-full", className)}
-      />
-    );
-  }
+  const box = heightBox(id, size);
 
   return (
-    <span
-      role="img"
-      aria-label={`${character.name}, ${character.species.toLowerCase()}`}
-      style={{
-        width: size,
-        height: size,
-        backgroundColor: character.softColor,
-        color: character.color,
-        borderColor: character.color,
-      }}
-      className={clsx(
-        "inline-flex shrink-0 items-center justify-center rounded-full border-4 font-heading font-extrabold",
-        className
-      )}
-    >
-      <span style={{ fontSize: size * 0.34 }}>{monogram(character)}</span>
-    </span>
+    <Image
+      src={CHARACTER_IMAGES[id]}
+      alt={`${character.name}, ${character.species.toLowerCase()}`}
+      priority={priority}
+      style={{ width: box.width, height: box.height }}
+      className={clsx("max-w-full", className)}
+    />
   );
 }

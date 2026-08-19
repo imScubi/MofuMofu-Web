@@ -91,7 +91,7 @@ export default async function AdminTestPage() {
                   const pct = total > 0 ? Math.round((n / total) * 100) : 0;
                   return (
                     <div key={id} className="flex items-center gap-3">
-                      <CharacterPortrait id={id} size={40} className="shrink-0" />
+                      <CharacterPortrait id={id} size={56} className="shrink-0" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-baseline justify-between gap-2">
                           <span className="font-heading text-sm font-bold text-ink">

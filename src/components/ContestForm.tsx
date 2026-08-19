@@ -159,7 +159,7 @@ export function ContestForm({ contest, event }: ContestFormProps) {
   if (folio != null) {
     return (
       <Card className="mofu-confetti mx-auto max-w-lg p-6 text-center sm:p-8">
-        <Character name={host} size={132} className="mx-auto" priority />
+        <Character name={host} size={185} className="mx-auto" priority />
         <h2 className="mt-1 font-heading text-[26px] font-extrabold leading-[1.15] text-ink">
           ¡Quedaste inscrito!
         </h2>
@@ -208,7 +208,7 @@ export function ContestForm({ contest, event }: ContestFormProps) {
               {eventVenue(event).line ? ` · ${eventVenue(event).line}` : ""}
             </p>
           </div>
-          <Character name={host} size={92} className="shrink-0" priority />
+          <Character name={host} size={129} className="shrink-0" priority />
         </div>
         {contest.description && (
           <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-3 text-[14px] leading-[1.55] text-ink-soft">

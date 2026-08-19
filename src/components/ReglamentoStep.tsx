@@ -58,7 +58,7 @@ export function ReglamentoStep({
             todas sus disposiciones.
           </p>
         </div>
-        <Character name="hanzo" size={78} className="hidden shrink-0 sm:block" />
+        <Character name="hanzo" size={109} className="hidden shrink-0 sm:block" />
       </div>
 
       <div>

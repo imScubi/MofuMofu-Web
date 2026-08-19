@@ -35,13 +35,6 @@ export interface CharacterInfo {
   softColor: string;
   /** Con quiénes se lleva mejor, en su orden. */
   friends: CharacterId[];
-  /**
-   * El archivo en /public. null mientras no exista todavía: la tarjeta
-   * enseña un monograma en vez de romperse con una imagen fantasma.
-   */
-  image: string | null;
-  imageWidth?: number;
-  imageHeight?: number;
 }
 
 export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
@@ -55,9 +48,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#E8628E",
     softColor: "#FFF1F5",
     friends: ["mimirosa", "nori", "nyxie"],
-    image: "/char-mofu.webp",
-    imageWidth: 600,
-    imageHeight: 879,
   },
   nyxie: {
     id: "nyxie",
@@ -69,9 +59,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#4B3C52",
     softColor: "#F3EEF6",
     friends: ["mofu", "nori"],
-    image: "/char-nyxie.webp",
-    imageWidth: 600,
-    imageHeight: 786,
   },
   mimirosa: {
     id: "mimirosa",
@@ -83,9 +70,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#26724A",
     softColor: "#DFF3E4",
     friends: ["mofu", "charmy"],
-    image: "/char-mimirosa.webp",
-    imageWidth: 600,
-    imageHeight: 802,
   },
   hanzo: {
     id: "hanzo",
@@ -97,9 +81,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#6B4BC4",
     softColor: "#EFE9FF",
     friends: ["rakkun", "kaini"],
-    image: "/char-hanzo.webp",
-    imageWidth: 600,
-    imageHeight: 578,
   },
   rakkun: {
     id: "rakkun",
@@ -111,9 +92,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#8A5806",
     softColor: "#FFF1D6",
     friends: ["hanzo", "nyxie"],
-    image: "/char-rakkun.webp",
-    imageWidth: 600,
-    imageHeight: 966,
   },
   charmy: {
     id: "charmy",
@@ -125,9 +103,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#2E8B57",
     softColor: "#E4F5EA",
     friends: ["kaini", "mimirosa"],
-    image: "/char-charmy.webp",
-    imageWidth: 600,
-    imageHeight: 795,
   },
   nori: {
     id: "nori",
@@ -139,9 +114,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#C2352C",
     softColor: "#FFF0EF",
     friends: ["mofu", "nyxie"],
-    image: "/char-nori.webp",
-    imageWidth: 600,
-    imageHeight: 832,
   },
   kaini: {
     id: "kaini",
@@ -153,9 +125,6 @@ export const CHARACTERS: Record<CharacterId, CharacterInfo> = {
     color: "#1D6FA5",
     softColor: "#E3F1FA",
     friends: ["hanzo", "charmy"],
-    image: "/char-kaini.webp",
-    imageWidth: 600,
-    imageHeight: 929,
   },
 };
 
@@ -165,7 +134,3 @@ export function getCharacter(id: string): CharacterInfo | undefined {
   return CHARACTERS[id as CharacterId];
 }
 
-/** Las iniciales para el monograma, mientras no haya ilustración. */
-export function monogram(character: CharacterInfo): string {
-  return character.name.slice(0, 2);
-}

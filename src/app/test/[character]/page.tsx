@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { CharacterPortrait } from "@/components/CharacterPortrait";
 import { CHARACTERS, CHARACTER_IDS, getCharacter } from "@/lib/characters";
+import { CHARACTER_IMAGES } from "@/lib/characterImages";
 import { CHARACTER_CODES } from "@/lib/quizAxes";
 import { QUIZ_RESULTS } from "@/lib/quizResults";
 
@@ -50,7 +51,8 @@ export async function generateMetadata({
       title: `Soy ${character.name} · ${character.species}`,
       description,
       url: `/test/${character.id}`,
-      images: character.image ? [{ url: character.image }] : undefined,
+      // La imagen que se ve al compartir el link en WhatsApp o Instagram.
+      images: [{ url: CHARACTER_IMAGES[character.id].src }],
     },
   };
 }
@@ -77,7 +79,7 @@ export default async function CharacterPage({
             className="px-6 pb-7 pt-8 text-center sm:px-8"
             style={{ backgroundColor: character.softColor }}
           >
-            <CharacterPortrait id={character.id} size={200} className="mx-auto" priority />
+            <CharacterPortrait id={character.id} size={280} className="mx-auto" priority />
             <p
               className="mt-3 text-sm font-bold uppercase tracking-wide"
               style={{ color: character.color }}
@@ -153,7 +155,7 @@ function AllCharacters() {
                   className="flex h-full items-start gap-4 p-5 transition-colors group-hover:border-pink-300"
                   style={{ borderColor: "transparent" }}
                 >
-                  <CharacterPortrait id={id} size={84} className="shrink-0" />
+                  <CharacterPortrait id={id} size={118} className="shrink-0" />
                   <div className="min-w-0">
                     <p
                       className="text-[11px] font-bold uppercase tracking-wide"

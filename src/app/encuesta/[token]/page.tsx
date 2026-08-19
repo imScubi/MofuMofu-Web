@@ -51,7 +51,7 @@ export default async function EncuestaPage({
     return (
       <main className="flex-1 px-4 py-16">
         <Card className="mx-auto max-w-lg p-8 text-center">
-          <Character name="hanzo" size={120} className="mx-auto" />
+          <Character name="hanzo" size={168} className="mx-auto" />
           <h1 className="mt-2 font-heading text-2xl font-bold text-ink">
             Esta encuesta ya cerró
           </h1>

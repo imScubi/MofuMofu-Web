@@ -52,9 +52,9 @@ export default async function ConvocatoriasPage() {
     <main className="flex-1 px-4 py-10 sm:py-14">
       <div className="mx-auto mb-8 max-w-3xl text-center">
         <div className="flex items-end justify-center gap-2">
-          <Character name="mimirosa" size={96} />
-          <Character name="nyxie" size={124} priority />
-          <Character name="hanzo" size={100} />
+          <Character name="mimirosa" size={134} />
+          <Character name="nyxie" size={174} priority />
+          <Character name="hanzo" size={140} />
         </div>
         <StarShape className="mx-auto mt-1 h-9 w-9" />
         <h1 className="mt-2 font-heading text-3xl font-bold text-ink">Convocatorias</h1>
@@ -65,7 +65,7 @@ export default async function ConvocatoriasPage() {
 
       {byEvent.length === 0 ? (
         <Card className="mx-auto max-w-lg p-8 text-center">
-          <Character name="mofu" size={116} className="mx-auto" />
+          <Character name="mofu" size={162} className="mx-auto" />
           <h2 className="mt-1 font-heading text-xl font-bold text-ink">
             Todavía no hay convocatorias abiertas
           </h2>

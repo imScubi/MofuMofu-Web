@@ -70,7 +70,7 @@ export function QuizResultCard({
         >
           <CharacterPortrait
             id={character.id}
-            size={190}
+            size={266}
             className="mx-auto"
             priority
           />

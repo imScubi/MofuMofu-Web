@@ -270,8 +270,8 @@ export default async function Home() {
       <section className="px-5 py-14 sm:py-20">
         <div className="mx-auto max-w-5xl">
           <div className="flex items-end justify-center gap-3">
-            <Character name="hanzo" size={92} />
-            <Character name="mimirosa" size={104} />
+            <Character name="hanzo" size={129} />
+            <Character name="mimirosa" size={146} />
           </div>
           <h2 className="mt-1 text-center font-heading text-2xl font-bold leading-[1.15] text-ink sm:text-[30px]">
             Cómo funciona
@@ -303,7 +303,7 @@ export default async function Home() {
         <div className="mx-auto max-w-3xl text-center">
           <div className="flex flex-wrap items-end justify-center gap-1.5">
             {CHARACTER_IDS.map((id) => (
-              <CharacterPortrait key={id} id={id} size={54} />
+              <CharacterPortrait key={id} id={id} size={76} />
             ))}
           </div>
           <h2 className="mt-5 font-heading text-2xl font-bold text-ink sm:text-3xl">
@@ -377,7 +377,7 @@ export default async function Home() {
 
       <section className="px-5 pb-20 pt-14">
         <Card className="mx-auto max-w-3xl border-lavender-300 bg-lavender-100/60 p-8 text-center">
-          <Character name="mofu" size={112} className="mx-auto" />
+          <Character name="mofu" size={157} className="mx-auto" />
           <h2 className="mt-1 font-heading text-2xl font-bold leading-[1.15] text-ink">
             ¿Dudas sobre tu registro?
           </h2>
