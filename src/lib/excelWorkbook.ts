@@ -1,6 +1,11 @@
 import ExcelJS from "exceljs";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
-import { describeDiscount, type DiscountInput } from "@/lib/discount";
+import {
+  describeDiscount,
+  discountAmount,
+  finalPrice,
+  type DiscountInput,
+} from "@/lib/discount";
 import { plansForEvent } from "@/lib/zones";
 import { formatEventDates } from "@/lib/formatDates";
 import { getContestType } from "@/lib/contestTypes";
@@ -20,6 +25,7 @@ const REG_STATUS_LABEL: Record<string, string> = {
   pending_review: "En revisión",
   approved: "Aprobado",
   rejected: "Rechazado",
+  cancelled: "Cancelado",
 };
 
 const STAND_STATUS_LABEL: Record<string, string> = {
@@ -30,6 +36,25 @@ const STAND_STATUS_LABEL: Record<string, string> = {
 };
 
 const MONEY_FORMAT = '"$"#,##0.00';
+
+/**
+ * Una celda con fórmula Y su resultado ya calculado.
+ *
+ * ExcelJS escribe la fórmula sola, sin el valor en caché. Excel de
+ * escritorio la recalcula al abrir, pero cualquier otra cosa que mire
+ * el archivo —Drive, la vista previa del correo, el visor del celular,
+ * o Excel en modo de cálculo manual— muestra la celda en blanco, que
+ * fue justo lo que pasó con todo el resumen financiero.
+ *
+ * Guardando el resultado el número se ve siempre, y la fórmula sigue
+ * ahí para recalcularse en cuanto alguien edite un dato.
+ */
+function calc(
+  formula: string,
+  result: number | string
+): { formula: string; result: number | string } {
+  return { formula, result };
+}
 
 const ENTRY_STATUS_LABEL: Record<string, string> = {
   pending_review: "En revisión",
@@ -111,6 +136,9 @@ export async function buildEventWorkbook({
   const workbook = new ExcelJS.Workbook();
   workbook.creator = EVENT_CONFIG.name;
   workbook.created = new Date();
+  // Cinturón y tirantes: además del resultado guardado en cada celda,
+  // se le pide a Excel que recalcule todo al abrir.
+  workbook.calcProperties.fullCalcOnLoad = true;
 
   // ---------------------------------------------------------------
   // Hoja "Stands"
@@ -201,14 +229,19 @@ export async function buildEventWorkbook({
       discount: describeDiscount(r),
       // Fórmula y no número: si más tarde corrigen el precio del plan
       // en la hoja, el descuento del 5% se recalcula solo.
-      discountAmount: { formula: discountFormula(r, col("planPrice"), rowNumber) },
-      finalPrice: {
-        formula: `${col("planPrice")}${rowNumber}-${col("discountAmount")}${rowNumber}`,
-      },
+      discountAmount: calc(
+        discountFormula(r, col("planPrice"), rowNumber),
+        discountAmount(r)
+      ),
+      finalPrice: calc(
+        `${col("planPrice")}${rowNumber}-${col("discountAmount")}${rowNumber}`,
+        finalPrice(r)
+      ),
       amount: Number(r.amount_reported),
-      balance: {
-        formula: `${col("finalPrice")}${rowNumber}-${col("amount")}${rowNumber}`,
-      },
+      balance: calc(
+        `${col("finalPrice")}${rowNumber}-${col("amount")}${rowNumber}`,
+        finalPrice(r) - Number(r.amount_reported)
+      ),
       status: REG_STATUS_LABEL[r.status] ?? r.status,
       reglamento: r.reglamento_accepted ? "Sí" : "No",
       giros: r.restricted_giros_accepted ? "Sí" : "No",
@@ -287,6 +320,8 @@ export async function buildEventWorkbook({
       lastRow: Math.max(rows.length + 1, 2),
       folioLetter: sheet.getColumn("folio").letter,
       statusLetter: sheet.getColumn("status").letter,
+      entryCount: rows.length,
+      acceptedCount: rows.filter((e) => e.status === "approved").length,
     };
   });
 
@@ -332,6 +367,15 @@ export async function buildEventWorkbook({
       lastRow: Math.max(rows.length + 1, 2),
       letterOf: (questionId: string) => sheet.getColumn(`q_${questionId}`).letter,
       dateLetter: sheet.getColumn("createdAt").letter,
+      responseCount: rows.length,
+      /** El promedio de una pregunta de calificación, o "" si nadie contestó. */
+      averageOf: (questionId: string): number | "" => {
+        const values = rows
+          .map((response) => Number(response.answers?.[questionId]))
+          .filter((n) => Number.isFinite(n));
+        if (values.length === 0) return "";
+        return values.reduce((sum, n) => sum + n, 0) / values.length;
+      },
     };
   });
 
@@ -339,6 +383,30 @@ export async function buildEventWorkbook({
   // Hoja "Resumen" — fórmulas en vivo sobre las hojas anteriores
   // ---------------------------------------------------------------
   const summary = workbook.addWorksheet("Resumen");
+
+  // Los mismos totales que enseña el panel, calculados aquí para poder
+  // guardarlos junto a cada fórmula. "Vivos" son los registros que no
+  // están rechazados: los demás no le deben nada al evento.
+  const label = (r: RegistrationRow) => REG_STATUS_LABEL[r.status] ?? r.status;
+  const liveRegs = registrations.filter((r) => label(r) !== "Rechazado");
+  const sum = (rows: RegistrationRow[], of: (r: RegistrationRow) => number) =>
+    rows.reduce((total, r) => total + of(r), 0);
+
+  const totalListPrice = sum(liveRegs, (r) => Number(r.plan_price));
+  const totalDiscounts = sum(liveRegs, discountAmount);
+  const totalExpected = sum(liveRegs, finalPrice);
+  const totalCollected = sum(liveRegs, (r) => Number(r.amount_reported));
+  const collectedApproved = sum(
+    registrations.filter((r) => label(r) === "Aprobado"),
+    (r) => Number(r.amount_reported)
+  );
+  const totalBalance = totalExpected - totalCollected;
+
+  const standsByStatus = (statusLabel: string) =>
+    reservableStands.filter(
+      (st) => (STAND_STATUS_LABEL[st.status] ?? st.status) === statusLabel
+    ).length;
+
   summary.getColumn(1).width = 34;
   summary.getColumn(2).width = 20;
 
@@ -353,15 +421,31 @@ export async function buildEventWorkbook({
   summary.getCell(`A${r}`).value = "Resumen de stands";
   summary.getCell(`A${r}`).font = { bold: true };
   r++;
-  const statRows: [string, string][] = [
-    ["Total de stands", `COUNTA(Stands!A2:A${standsLastRow})`],
-    ["Disponibles", `COUNTIF(Stands!B2:B${standsLastRow},"Disponible")`],
-    ["En proceso de pago", `COUNTIF(Stands!B2:B${standsLastRow},"En proceso")`],
-    ["Apartados", `COUNTIF(Stands!B2:B${standsLastRow},"Apartado")`],
+  const statRows: [string, string, number][] = [
+    [
+      "Total de stands",
+      `COUNTA(Stands!A2:A${standsLastRow})`,
+      reservableStands.length,
+    ],
+    [
+      "Disponibles",
+      `COUNTIF(Stands!B2:B${standsLastRow},"Disponible")`,
+      standsByStatus("Disponible"),
+    ],
+    [
+      "En proceso de pago",
+      `COUNTIF(Stands!B2:B${standsLastRow},"En proceso")`,
+      standsByStatus("En proceso"),
+    ],
+    [
+      "Apartados",
+      `COUNTIF(Stands!B2:B${standsLastRow},"Apartado")`,
+      standsByStatus("Apartado"),
+    ],
   ];
-  statRows.forEach(([label, formula]) => {
-    summary.getCell(`A${r}`).value = label;
-    summary.getCell(`B${r}`).value = { formula };
+  statRows.forEach(([rowLabel, formula, value]) => {
+    summary.getCell(`A${r}`).value = rowLabel;
+    summary.getCell(`B${r}`).value = calc(formula, value);
     r++;
   });
 
@@ -374,47 +458,53 @@ export async function buildEventWorkbook({
   // corte de caja no es lo mismo "se cobró menos" que "se decidió
   // cobrar menos", y el segundo dato se pierde si sólo queda el total.
   summary.getCell(`A${r}`).value = "Precio de lista (registros no rechazados)";
-  summary.getCell(`B${r}`).value = {
-    formula: `SUMIFS(${planPriceRange},${statusRange},"<>Rechazado")`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `SUMIFS(${planPriceRange},${statusRange},"<>Rechazado")`,
+    totalListPrice
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   summary.getCell(`A${r}`).value = "Descuentos otorgados";
-  summary.getCell(`B${r}`).value = {
-    formula: `SUMIFS(${discountRange},${statusRange},"<>Rechazado")`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `SUMIFS(${discountRange},${statusRange},"<>Rechazado")`,
+    totalDiscounts
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   const expectedRow = r;
   summary.getCell(`A${r}`).value = "Ingreso esperado (ya con descuentos)";
-  summary.getCell(`B${r}`).value = {
-    formula: `SUMIFS(${finalPriceRange},${statusRange},"<>Rechazado")`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `SUMIFS(${finalPriceRange},${statusRange},"<>Rechazado")`,
+    totalExpected
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   const collectedRow = r;
   summary.getCell(`A${r}`).value = "Recaudado (montos reportados, sin rechazados)";
-  summary.getCell(`B${r}`).value = {
-    formula: `SUMIFS(${amountRange},${statusRange},"<>Rechazado")`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `SUMIFS(${amountRange},${statusRange},"<>Rechazado")`,
+    totalCollected
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   summary.getCell(`A${r}`).value = "Recaudado de registros aprobados";
-  summary.getCell(`B${r}`).value = {
-    formula: `SUMIFS(${amountRange},${statusRange},"Aprobado")`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `SUMIFS(${amountRange},${statusRange},"Aprobado")`,
+    collectedApproved
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   const balanceRow = r;
   summary.getCell(`A${r}`).value = "Saldo pendiente de cobro";
-  summary.getCell(`B${r}`).value = {
-    formula: `B${expectedRow}-B${collectedRow}`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `B${expectedRow}-B${collectedRow}`,
+    totalBalance
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   summary.getCell(`B${r}`).font = { bold: true };
   r += 2;
@@ -431,11 +521,15 @@ export async function buildEventWorkbook({
       ])
     ).keys()
   );
-  planLabels.forEach((label) => {
-    summary.getCell(`A${r}`).value = label;
-    summary.getCell(`B${r}`).value = {
-      formula: `SUMIFS(${finalPriceRange},${planRange},"${label}",${statusRange},"<>Rechazado")`,
-    };
+  planLabels.forEach((planLabel) => {
+    summary.getCell(`A${r}`).value = planLabel;
+    summary.getCell(`B${r}`).value = calc(
+      `SUMIFS(${finalPriceRange},${planRange},"${planLabel}",${statusRange},"<>Rechazado")`,
+      sum(
+        liveRegs.filter((reg) => reg.plan_label === planLabel),
+        finalPrice
+      )
+    );
     summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
     r++;
   });
@@ -452,15 +546,21 @@ export async function buildEventWorkbook({
   const deadlineRow = r;
   r++;
 
+  // El valor guardado envejece un día por día; la fórmula lo corrige en
+  // cuanto Excel recalcula, que es al abrir.
+  const daysLeft = Math.round(
+    (deadline.getTime() - new Date().setHours(0, 0, 0, 0)) / 86_400_000
+  );
   summary.getCell(`A${r}`).value = "Días restantes";
-  summary.getCell(`B${r}`).value = { formula: `B${deadlineRow}-TODAY()` };
+  summary.getCell(`B${r}`).value = calc(`B${deadlineRow}-TODAY()`, daysLeft);
   const daysLeftRow = r;
   r++;
 
   summary.getCell(`A${r}`).value = "Cobro sugerido por día para liquidar a tiempo";
-  summary.getCell(`B${r}`).value = {
-    formula: `IF(B${daysLeftRow}>0,B${balanceRow}/B${daysLeftRow},B${balanceRow})`,
-  };
+  summary.getCell(`B${r}`).value = calc(
+    `IF(B${daysLeftRow}>0,B${balanceRow}/B${daysLeftRow},B${balanceRow})`,
+    daysLeft > 0 ? totalBalance / daysLeft : totalBalance
+  );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
 
   // ---------------------------------------------------------------
@@ -485,20 +585,35 @@ export async function buildEventWorkbook({
     summary.getColumn(5).width = 14;
     r++;
 
-    contestSheets.forEach(({ contest, sheetName, lastRow, folioLetter, statusLetter }) => {
+    contestSheets.forEach((sheetInfo) => {
+      const {
+        contest,
+        sheetName,
+        lastRow,
+        folioLetter,
+        statusLetter,
+        entryCount,
+        acceptedCount,
+      } = sheetInfo;
       const folioRange = `'${sheetName}'!${folioLetter}2:${folioLetter}${lastRow}`;
       const entryStatusRange = `'${sheetName}'!${statusLetter}2:${statusLetter}${lastRow}`;
 
       summary.getCell(`A${r}`).value = contest.name;
-      summary.getCell(`B${r}`).value = { formula: `COUNTA(${folioRange})` };
+      summary.getCell(`B${r}`).value = calc(`COUNTA(${folioRange})`, entryCount);
       if (contest.max_entries == null) {
         summary.getCell(`C${r}`).value = "Sin límite";
         summary.getCell(`D${r}`).value = "—";
       } else {
         summary.getCell(`C${r}`).value = contest.max_entries;
-        summary.getCell(`D${r}`).value = { formula: `MAX(C${r}-B${r},0)` };
+        summary.getCell(`D${r}`).value = calc(
+          `MAX(C${r}-B${r},0)`,
+          Math.max(contest.max_entries - entryCount, 0)
+        );
       }
-      summary.getCell(`E${r}`).value = { formula: `COUNTIF(${entryStatusRange},"Aceptado")` };
+      summary.getCell(`E${r}`).value = calc(
+        `COUNTIF(${entryStatusRange},"Aceptado")`,
+        acceptedCount
+      );
       r++;
     });
   }
@@ -512,12 +627,24 @@ export async function buildEventWorkbook({
     summary.getCell(`A${r}`).font = { bold: true };
     r++;
 
-    surveySheets.forEach(({ survey, template, sheetName, lastRow, letterOf, dateLetter }) => {
+    surveySheets.forEach((sheetInfo) => {
+      const {
+        survey,
+        template,
+        sheetName,
+        lastRow,
+        letterOf,
+        dateLetter,
+        responseCount,
+        averageOf,
+      } = sheetInfo;
+
       summary.getCell(`A${r}`).value = survey.title;
       summary.getCell(`A${r}`).font = { bold: true };
-      summary.getCell(`B${r}`).value = {
-        formula: `COUNTA('${sheetName}'!${dateLetter}2:${dateLetter}${lastRow})`,
-      };
+      summary.getCell(`B${r}`).value = calc(
+        `COUNTA('${sheetName}'!${dateLetter}2:${dateLetter}${lastRow})`,
+        responseCount
+      );
       summary.getCell(`C${r}`).value = "respuestas";
       r++;
 
@@ -526,9 +653,10 @@ export async function buildEventWorkbook({
         .forEach((question) => {
           const letter = letterOf(question.id);
           summary.getCell(`A${r}`).value = `   Promedio — ${question.label}`;
-          summary.getCell(`B${r}`).value = {
-            formula: `IFERROR(AVERAGE('${sheetName}'!${letter}2:${letter}${lastRow}),"")`,
-          };
+          summary.getCell(`B${r}`).value = calc(
+            `IFERROR(AVERAGE('${sheetName}'!${letter}2:${letter}${lastRow}),"")`,
+            averageOf(question.id)
+          );
           summary.getCell(`B${r}`).numFmt = "0.00";
           r++;
         });
