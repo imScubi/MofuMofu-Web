@@ -457,7 +457,12 @@ export async function buildEventWorkbook({
   // guardarlos junto a cada fórmula. "Vivos" son los registros que no
   // están rechazados: los demás no le deben nada al evento.
   const label = (r: RegistrationRow) => REG_STATUS_LABEL[r.status] ?? r.status;
-  const liveRegs = registrations.filter((r) => label(r) !== "Rechazado");
+  // Vigentes: los que siguen dentro. Un rechazado nunca entró y un
+  // cancelado ya se salió; si contaran, el saldo pendiente mostraría
+  // dinero que nadie va a pagar.
+  const liveRegs = registrations.filter(
+    (r) => label(r) !== "Rechazado" && label(r) !== "Cancelado"
+  );
   const sum = (rows: RegistrationRow[], of: (r: RegistrationRow) => number) =>
     rows.reduce((total, r) => total + of(r), 0);
 
@@ -470,6 +475,10 @@ export async function buildEventWorkbook({
     (r) => Number(r.amount_reported)
   );
   const totalBalance = totalExpected - totalCollected;
+
+  // El mismo filtro, escrito para SUMIFS. Vive en una constante porque
+  // se repite en cada total y en el desglose por plan.
+  const liveCriteria = `${statusRange},"<>Rechazado",${statusRange},"<>Cancelado"`;
 
   const standsByStatus = (statusLabel: string) =>
     reservableStands.filter(
@@ -526,9 +535,9 @@ export async function buildEventWorkbook({
   // El precio de lista y los descuentos van en renglones propios: en un
   // corte de caja no es lo mismo "se cobró menos" que "se decidió
   // cobrar menos", y el segundo dato se pierde si sólo queda el total.
-  summary.getCell(`A${r}`).value = "Precio de lista (registros no rechazados)";
+  summary.getCell(`A${r}`).value = "Precio de lista (registros vigentes)";
   summary.getCell(`B${r}`).value = calc(
-    `SUMIFS(${planPriceRange},${statusRange},"<>Rechazado")`,
+    `SUMIFS(${planPriceRange},${liveCriteria})`,
     totalListPrice
   );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
@@ -536,7 +545,7 @@ export async function buildEventWorkbook({
 
   summary.getCell(`A${r}`).value = "Descuentos otorgados";
   summary.getCell(`B${r}`).value = calc(
-    `SUMIFS(${discountRange},${statusRange},"<>Rechazado")`,
+    `SUMIFS(${discountRange},${liveCriteria})`,
     totalDiscounts
   );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
@@ -545,16 +554,16 @@ export async function buildEventWorkbook({
   const expectedRow = r;
   summary.getCell(`A${r}`).value = "Ingreso esperado (ya con descuentos)";
   summary.getCell(`B${r}`).value = calc(
-    `SUMIFS(${finalPriceRange},${statusRange},"<>Rechazado")`,
+    `SUMIFS(${finalPriceRange},${liveCriteria})`,
     totalExpected
   );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
   r++;
 
   const collectedRow = r;
-  summary.getCell(`A${r}`).value = "Recaudado (montos reportados, sin rechazados)";
+  summary.getCell(`A${r}`).value = "Recaudado (registros vigentes)";
   summary.getCell(`B${r}`).value = calc(
-    `SUMIFS(${amountRange},${statusRange},"<>Rechazado")`,
+    `SUMIFS(${amountRange},${liveCriteria})`,
     totalCollected
   );
   summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
@@ -580,47 +589,78 @@ export async function buildEventWorkbook({
 
   // Las bajas van en su propio bloque, separadas de lo que se espera
   // cobrar: mezclarlas escondería que ese dinero entró y volvió a salir.
-  if (refunds.length > 0) {
-    const totalRefunded = refunds.reduce(
-      (total, refund) => total + Number(refund.amount_refunded),
-      0
-    );
-    const totalKept = refunds.reduce(
-      (total, refund) =>
-        total + (Number(refund.amount_paid) - Number(refund.amount_refunded)),
-      0
-    );
+  const cancelledRegs = registrations.filter((reg) => label(reg) === "Cancelado");
+  const cancelledPaid = sum(cancelledRegs, (reg) => Number(reg.amount_reported));
+  const totalRefunded = refunds.reduce(
+    (total, refund) => total + Number(refund.amount_refunded),
+    0
+  );
+  const totalKept = refunds.reduce(
+    (total, refund) =>
+      total + (Number(refund.amount_paid) - Number(refund.amount_refunded)),
+    0
+  );
 
-    summary.getCell(`A${r}`).value = "Bajas con devolución";
+  // Los que se salieron van en su propio bloque. Dejaron de ser ingreso
+  // esperado, pero su dinero no dejó de existir: mientras no se les
+  // devuelva sigue en la cuenta, y esconderlo descuadra el corte.
+  if (cancelledRegs.length > 0 || refunds.length > 0) {
+    summary.getCell(`A${r}`).value = "Cancelados y bajas";
     summary.getCell(`A${r}`).font = { bold: true };
     r++;
 
-    summary.getCell(`A${r}`).value = `Expositores dados de baja`;
-    summary.getCell(`B${r}`).value = refunds.length;
-    r++;
+    let cancelledRow = 0;
+    if (cancelledRegs.length > 0) {
+      summary.getCell(`A${r}`).value = "Expositores cancelados";
+      summary.getCell(`B${r}`).value = calc(
+        `COUNTIF(${statusRange},"Cancelado")`,
+        cancelledRegs.length
+      );
+      r++;
 
-    summary.getCell(`A${r}`).value = "Devuelto a expositores (salió de caja)";
-    summary.getCell(`B${r}`).value = calc(`SUM(${refundRange})`, totalRefunded);
-    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
-    r++;
+      cancelledRow = r;
+      summary.getCell(`A${r}`).value = "Pagado por cancelados (sigue en caja)";
+      summary.getCell(`B${r}`).value = calc(
+        `SUMIFS(${amountRange},${statusRange},"Cancelado")`,
+        cancelledPaid
+      );
+      summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+      r++;
+    }
 
-    const keptRow = r;
-    summary.getCell(`A${r}`).value = "Retenido de esas bajas (se quedó en caja)";
-    summary.getCell(`B${r}`).value = calc(`SUM(${keptRange})`, totalKept);
-    summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
-    r++;
+    let keptRow = 0;
+    if (refunds.length > 0) {
+      summary.getCell(`A${r}`).value = "Expositores eliminados con devolución";
+      summary.getCell(`B${r}`).value = refunds.length;
+      r++;
 
-    summary.getCell(`A${r}`).value = "En caja (recaudado + retenido)";
+      summary.getCell(`A${r}`).value = "Devuelto a expositores (salió de caja)";
+      summary.getCell(`B${r}`).value = calc(`SUM(${refundRange})`, totalRefunded);
+      summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+      r++;
+
+      keptRow = r;
+      summary.getCell(`A${r}`).value = "Retenido de esas bajas (se quedó en caja)";
+      summary.getCell(`B${r}`).value = calc(`SUM(${keptRange})`, totalKept);
+      summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
+      r++;
+    }
+
+    const parts = [`B${collectedRow}`];
+    if (cancelledRow) parts.push(`B${cancelledRow}`);
+    if (keptRow) parts.push(`B${keptRow}`);
+
+    summary.getCell(`A${r}`).value = "En caja (todo lo que entró y sigue aquí)";
     summary.getCell(`B${r}`).value = calc(
-      `B${collectedRow}+B${keptRow}`,
-      totalCollected + totalKept
+      parts.join("+"),
+      totalCollected + cancelledPaid + totalKept
     );
     summary.getCell(`B${r}`).numFmt = MONEY_FORMAT;
     summary.getCell(`B${r}`).font = { bold: true };
     r += 2;
   }
 
-  summary.getCell(`A${r}`).value = "Desglose por plan (registros no rechazados)";
+  summary.getCell(`A${r}`).value = "Desglose por plan (registros vigentes)";
   summary.getCell(`A${r}`).font = { bold: true };
   r++;
 
@@ -635,7 +675,7 @@ export async function buildEventWorkbook({
   planLabels.forEach((planLabel) => {
     summary.getCell(`A${r}`).value = planLabel;
     summary.getCell(`B${r}`).value = calc(
-      `SUMIFS(${finalPriceRange},${planRange},"${planLabel}",${statusRange},"<>Rechazado")`,
+      `SUMIFS(${finalPriceRange},${planRange},"${planLabel}",${liveCriteria})`,
       sum(
         liveRegs.filter((reg) => reg.plan_label === planLabel),
         finalPrice

@@ -129,7 +129,13 @@ export function AdminDashboard({
     const pending = reservable.filter((s) => s.status === "pending").length;
     const available = reservable.filter((s) => s.status === "available").length;
 
-    const live = registrations.filter((r) => r.status !== "rejected");
+    // Vigentes: los que siguen dentro. Un rechazado nunca entró y un
+    // cancelado ya se salió, así que ninguno de los dos debe nada — si
+    // contaran, el saldo pendiente mostraría dinero que nadie va a
+    // pagar.
+    const live = registrations.filter(
+      (r) => r.status !== "rejected" && r.status !== "cancelled"
+    );
 
     // Precio de lista y descuentos van por separado: "se cobró menos" y
     // "se decidió cobrar menos" son dos cosas distintas en un corte.
@@ -137,6 +143,12 @@ export function AdminDashboard({
     const discounts = live.reduce((sum, r) => sum + discountAmount(r), 0);
     const expected = listPrice - discounts;
     const collected = live.reduce((sum, r) => sum + Number(r.amount_reported), 0);
+
+    // Lo que alcanzó a pagar un cancelado sigue en la cuenta mientras no
+    // se le devuelva; deja de ser ingreso esperado, no deja de existir.
+    const cancelledPaid = registrations
+      .filter((r) => r.status === "cancelled")
+      .reduce((sum, r) => sum + Number(r.amount_reported), 0);
 
     // Las bajas con devolución ya no están en `registrations`, así que
     // su dinero hay que traerlo de aquí: lo devuelto salió de la caja y
@@ -156,9 +168,10 @@ export function AdminDashboard({
       discounts,
       expected,
       collected,
+      cancelledPaid,
       refunded,
       kept,
-      inCash: collected + kept,
+      inCash: collected + cancelledPaid + kept,
       balance: expected - collected,
     };
   }, [stands, registrations, refunds]);
@@ -371,15 +384,19 @@ export function AdminDashboard({
 
       {/* Sólo aparece cuando hay bajas con devolución: si no, sería una
           fila de ceros ocupando la pantalla todo el tiempo. */}
-      {refunds.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      {(refunds.length > 0 || stats.cancelledPaid > 0) && (
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Pagado por cancelados"
+            value={formatMoney(stats.cancelledPaid)}
+          />
           <StatCard
             label={`Devuelto a ${refunds.length} ${refunds.length === 1 ? "baja" : "bajas"}`}
             value={formatMoney(stats.refunded)}
           />
           <StatCard label="Retenido de esas bajas" value={formatMoney(stats.kept)} />
           <StatCard
-            label="En caja (recaudado + retenido)"
+            label="En caja (todo lo que entró)"
             value={formatMoney(stats.inCash)}
             tone="mint"
           />
