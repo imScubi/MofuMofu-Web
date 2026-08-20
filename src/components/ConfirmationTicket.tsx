@@ -12,8 +12,6 @@ interface ConfirmationTicketProps {
   folio: number | null;
   standId: string | null;
   event: EventRow | null;
-  /** A dónde se mandó el folio; null si el correo no salió. */
-  emailedTo?: string | null;
 }
 
 /**
@@ -21,12 +19,7 @@ interface ConfirmationTicketProps {
  * pago, así que es lo más grande de la pantalla y se ve como un boleto:
  * en una captura de pantalla se distingue a la primera.
  */
-export function ConfirmationTicket({
-  folio,
-  standId,
-  event,
-  emailedTo,
-}: ConfirmationTicketProps) {
+export function ConfirmationTicket({ folio, standId, event }: ConfirmationTicketProps) {
   const [copied, setCopied] = useState(false);
 
   async function copyFolio() {
@@ -90,9 +83,8 @@ export function ConfirmationTicket({
             #{folio}
           </p>
           <p className="mt-2.5 text-[13px] font-semibold leading-[1.5] text-ink-soft">
-            {emailedTo
-              ? `Te lo mandamos a ${emailedTo}. Revisa tu bandeja y el correo no deseado.`
-              : "Toma captura de pantalla. Lo necesitas para completar tu pago después."}
+            Guárdalo con el botón de abajo o toma captura. Lo necesitas para
+            completar tu pago después.
           </p>
           <Button
             type="button"

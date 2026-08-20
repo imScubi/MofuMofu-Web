@@ -8,8 +8,6 @@ import {
 } from "@/lib/zones";
 import { uploadedObjectExists } from "@/lib/storagePaths";
 import { eventDays } from "@/lib/eventDays";
-import { sendFolioEmail } from "@/lib/email";
-import type { EventRow } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -20,10 +18,7 @@ const schema = z.object({
   businessName: z.string().trim().min(1).max(200),
   contactName: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(6).max(30),
-  // Obligatorio desde que el folio se manda por correo: sin
-  // dirección, el expositor se queda sin la única copia
-  // duradera del número que después le vamos a pedir.
-  email: z.string().trim().email(),
+  email: z.string().trim().email().optional().or(z.literal("")),
   instagram: z.string().trim().max(200).optional().or(z.literal("")),
   facebook: z.string().trim().max(200).optional().or(z.literal("")),
   tiktok: z.string().trim().max(200).optional().or(z.literal("")),
@@ -48,6 +43,30 @@ const schema = z.object({
   paymentProofPath2: z.string().trim().max(200).optional().or(z.literal("")),
 });
 
+/** Cómo se llama cada campo para quien está llenando el formulario. */
+const CAMPOS: Record<string, string> = {
+  eventId: "la edición del evento",
+  standId: "el stand",
+  planId: "el plan",
+  businessName: "el nombre del negocio",
+  contactName: "el nombre de contacto",
+  phone: "el teléfono",
+  email: "el correo electrónico",
+  instagram: "Instagram",
+  facebook: "Facebook",
+  tiktok: "TikTok",
+  otherSocial: "la otra red social",
+  businessCategory: "el giro del negocio",
+  productDetails: "qué vendes",
+  participationDay: "el día que participas",
+  electricityDetails: "el detalle de electricidad",
+  gasDetails: "el detalle de gas",
+  amountReported: "el monto que transferiste",
+  logoPath: "el logo",
+  paymentProofPath: "la captura de tu transferencia",
+  paymentProofPath2: "la segunda captura",
+};
+
 export async function POST(request: Request) {
   const formData = await request.formData();
 
@@ -58,7 +77,7 @@ export async function POST(request: Request) {
     businessName: formData.get("businessName"),
     contactName: formData.get("contactName"),
     phone: formData.get("phone"),
-    email: formData.get("email"),
+    email: formData.get("email") || "",
     instagram: formData.get("instagram") || "",
     facebook: formData.get("facebook") || "",
     tiktok: formData.get("tiktok") || "",
@@ -79,8 +98,24 @@ export async function POST(request: Request) {
   });
 
   if (!parsed.success) {
+    // El mensaje se arma aquí, con nombres en español, y no en el
+    // navegador: así sirve aunque el visitante tenga cargada una
+    // versión vieja de la página. "Revisa los datos del formulario" a
+    // secas no le dice nada a nadie, ni a quien lo reporta.
+    const campos = parsed.error.issues
+      .map((issue) => CAMPOS[String(issue.path[0])] ?? String(issue.path[0]))
+      .filter((campo, i, todos) => todos.indexOf(campo) === i);
+
+    console.error("reserve validation", JSON.stringify(parsed.error.issues));
+
     return NextResponse.json(
-      { message: "Revisa los datos del formulario.", issues: parsed.error.issues },
+      {
+        message:
+          campos.length > 0
+            ? `Revisa ${campos.length === 1 ? "este dato" : "estos datos"}: ${campos.join(", ")}.`
+            : "Revisa los datos del formulario.",
+        issues: parsed.error.issues,
+      },
       { status: 400 }
     );
   }
@@ -268,24 +303,5 @@ export async function POST(request: Request) {
     );
   }
 
-  // El correo va al final y por su cuenta: el lugar ya quedó apartado y
-  // nada de lo que pase aquí puede cambiar eso. Si el proveedor falla,
-  // el folio sigue en la pantalla de confirmación.
-  let emailSent = false;
-  if (payload.email) {
-    emailSent = await sendFolioEmail({
-      to: payload.email,
-      folioNumber: data.folio_number,
-      standId: payload.standId,
-      businessName: payload.businessName,
-      contactName: payload.contactName,
-      planLabel: `${plan.categoryLabel} · ${plan.days} ${plan.days === 1 ? "día" : "días"}`,
-      totalDue: plan.price,
-      amountReported: payload.amountReported,
-      participationDay: payload.participationDay || null,
-      event: eventData as EventRow,
-    });
-  }
-
-  return NextResponse.json({ ...data, email_sent: emailSent });
+  return NextResponse.json(data);
 }

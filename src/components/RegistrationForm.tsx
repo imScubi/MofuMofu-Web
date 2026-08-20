@@ -70,7 +70,6 @@ export function RegistrationForm({
   const [uploading, setUploading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [folio, setFolio] = useState<number | null>(null);
-  const [emailedTo, setEmailedTo] = useState<string | null>(null);
 
   const [businessName, setBusinessName] = useState("");
   const [contactName, setContactName] = useState("");
@@ -186,10 +185,10 @@ export function RegistrationForm({
       setInfoError("Completa nombre del negocio, contacto y teléfono para continuar.");
       return;
     }
-    // Una revisión de andar por casa: no valida que el correo exista,
-    // sólo atrapa la errata evidente antes de mandar el folio al vacío.
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
-      setInfoError("Escribe un correo válido: ahí te mandamos tu folio.");
+    // El correo es opcional, pero si lo escriben mal el servidor lo
+    // rechaza al final de todo — mejor atrapar la errata aquí.
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      setInfoError("Ese correo no se ve bien. Revísalo o déjalo en blanco.");
       return;
     }
     if (!productDetails.trim()) {
@@ -323,7 +322,6 @@ export function RegistrationForm({
         message?: string;
         detail?: string;
         folio_number?: number;
-        email_sent?: boolean;
       } = {};
       try {
         data = JSON.parse(raw);
@@ -355,7 +353,6 @@ export function RegistrationForm({
       }
 
       setFolio(data.folio_number);
-      setEmailedTo(data.email_sent ? email.trim() : null);
       setStep("done");
     } catch (err) {
       setError(
@@ -379,7 +376,6 @@ export function RegistrationForm({
         folio={folio}
         standId={selectedStandId}
         event={selectedEvent}
-        emailedTo={emailedTo}
       />
     );
   }
@@ -581,22 +577,12 @@ export function RegistrationForm({
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </div>
-              {/* Obligatorio desde que ahí llega el folio: es la única
-                  copia que le queda al expositor cuando cierre la
-                  pestaña de confirmación. */}
-              <div>
-                <Field
-                  label="Correo electrónico"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                />
-                <p className={helpClass}>
-                  Ahí te mandamos tu folio, que es lo que te vamos a pedir para
-                  completar tu pago.
-                </p>
-              </div>
+              <Field
+                label="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
 
               {/* Las redes son opcionales y siempre lo fueron, pero tres
                   campos vacíos a media pantalla se leen como obligatorios.
