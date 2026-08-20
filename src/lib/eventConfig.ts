@@ -7,10 +7,10 @@ export const EVENT_CONFIG = {
   currency: "MXN",
   // Datos bancarios a mostrar al expositor para hacer su transferencia.
   bankInfo: {
-    bank: "STP Plata",
+    bank: "Nu",
     accountHolder: "Roberto Renne Coronado Luna",
-    clabe: "646192405603826008",
-    cardNumber: "5324 1089 9295 3850",
+    clabe: "638180010170018084",
+    cardNumber: "5101 2578 9327 3428",
     concept: "Nombre de tu negocio + número de stand",
   },
   contactEmail: "mofumofuu.market@gmail.com",

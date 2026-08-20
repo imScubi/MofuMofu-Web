@@ -4,6 +4,7 @@ import { ChangeEvent, FormEvent, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Character } from "@/components/ui/Character";
+import { BankDetails } from "@/components/BankDetails";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
 import {
   fileInputClass,
@@ -218,6 +219,11 @@ export default function CompletarPagoPage() {
             </p>
           ) : (
             <form onSubmit={handleAddPayment} className="mt-5 space-y-4">
+              {/* Los datos van también aquí: quien vuelve a completar su
+                  pago no tiene por qué acordarse de la CLABE, y si la
+                  guardó de su primer pago puede estar guardando una
+                  cuenta que ya cambió. */}
+              <BankDetails />
               <div>
                 <label className={labelClass}>
                   Monto de este pago ({EVENT_CONFIG.currency})
