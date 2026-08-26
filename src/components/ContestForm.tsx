@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Character, type CharacterName } from "@/components/ui/Character";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { ContestRegulation } from "@/components/ContestRegulation";
+import { ContestFees } from "@/components/ContestFees";
 import {
   cleanAnswers,
   getContestType,
@@ -210,6 +211,12 @@ export function ContestForm({ contest, event }: ContestFormProps) {
           </div>
           <Character name={host} size={129} className="shrink-0" priority />
         </div>
+
+        {/* Hasta mero arriba: el precio va antes que la descripción y
+            antes del formulario. Nadie debería llenar veinte campos
+            para enterarse de cuánto cuesta. */}
+        <ContestFees contest={contest} className="mt-4" />
+
         {contest.description && (
           <p className="mt-3 rounded-2xl bg-lavender-100/60 px-4 py-3 text-[14px] leading-[1.55] text-ink-soft">
             {contest.description}

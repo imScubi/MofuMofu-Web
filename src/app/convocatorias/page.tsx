@@ -10,6 +10,7 @@ import { getContestType } from "@/lib/contestTypes";
 import { EVENT_CONFIG, eventVenue } from "@/lib/eventConfig";
 import { formatDate, formatEventDates } from "@/lib/formatDates";
 import type { ContestRow, EventRow } from "@/lib/types";
+import { ContestFees } from "@/components/ContestFees";
 
 export const dynamic = "force-dynamic";
 
@@ -116,6 +117,10 @@ export default async function ConvocatoriasPage() {
                       )}
 
                       <div className="mt-3 flex flex-wrap gap-1.5">
+                        {/* El precio primero entre las etiquetas: es el
+                            dato que decide si entras a la convocatoria
+                            o pasas a la siguiente. */}
+                        <ContestFees contest={contest} compact />
                         {availability.spotsLeft != null && (
                           <span
                             className={`rounded-full px-2.5 py-1 text-[12px] font-bold ${
