@@ -36,13 +36,21 @@ import {
   zonesForPlan,
 } from "@/lib/zones";
 import { DirectUploadError, uploadDirect } from "@/lib/uploadDirect";
-import type { EventRow, EventStandRow, EventZoneRow } from "@/lib/types";
+import { daysForPlan, standFit } from "@/lib/standAvailability";
+import type {
+  EventRow,
+  EventStandRow,
+  EventZoneRow,
+  StandOccupancyRow,
+} from "@/lib/types";
 
 interface RegistrationFormProps {
   events: EventRow[];
   standsByEvent: Record<string, EventStandRow[]>;
   /** Zonas por edición: qué lugares le tocan a cada plan. */
   zonesByEvent: Record<string, EventZoneRow[]>;
+  /** Qué stands están tomados, por día y por lugar compartido. */
+  occupancyByEvent: Record<string, StandOccupancyRow[]>;
 }
 
 type Step = "event" | "map" | "info" | "reglamento" | "payment" | "done";
@@ -58,6 +66,7 @@ export function RegistrationForm({
   events,
   standsByEvent,
   zonesByEvent,
+  occupancyByEvent,
 }: RegistrationFormProps) {
   const [step, setStep] = useState<Step>(events.length === 1 ? "map" : "event");
   const [selectedEvent, setSelectedEvent] = useState<EventRow | null>(
@@ -132,14 +141,36 @@ export function RegistrationForm({
           .map((zone) => zone.label)
           .join(" o ")}.`
       : null;
+  const needsDayChoice = Boolean(selectedPlan && selectedPlan.days === 1 && days.length > 1);
+
+  // Qué días ocuparía el plan elegido, y cómo le queda cada stand. Es la
+  // misma regla que aplica la base al reservar: un stand con un
+  // expositor de un solo día sigue libre el otro, y un espacio
+  // compartido admite a un segundo negocio.
+  const occupancy = selectedEvent ? (occupancyByEvent[selectedEvent.id] ?? []) : [];
+  const wantedDays = selectedPlan
+    ? daysForPlan(selectedPlan, days, participationDay)
+    : [];
+
+  function fitForStand(standId: string) {
+    if (!selectedPlan || wantedDays.length === 0) return null;
+    return standFit({
+      occupancy,
+      standId,
+      eventDays: days,
+      wantedDays,
+      shared: selectedPlan.shared,
+    });
+  }
+
   // Si no queda ni un lugar, invitar a "tocar un espacio verde" es
   // mandar a buscar algo que no está en el plano.
   const hasFreeStand = eventStands.some(
     (stand) =>
-      stand.status === "available" && isStandAllowed(zoneRules, stand.stand_id)
+      stand.status !== "blocked" &&
+      isStandAllowed(zoneRules, stand.stand_id) &&
+      fitForStand(stand.stand_id)?.kind !== "ocupado"
   );
-
-  const needsDayChoice = Boolean(selectedPlan && selectedPlan.days === 1 && days.length > 1);
 
   // Con una sola edición nunca existe el paso de elegirla: mostrarlo
   // dejaría un paso "completado" al que nadie puede volver.
@@ -171,14 +202,39 @@ export function RegistrationForm({
     // se suelta cuando de verdad dejó de valer: obligar a volver a
     // buscarlo en el plano cuando sigue siendo válido sería castigar
     // por cambiar de opinión.
-    if (
+    const fueraDeZona =
       selectedStandId &&
-      standRejectionReason(zones, plan.id, selectedStandId, occupied)
-    ) {
+      standRejectionReason(zones, plan.id, selectedStandId, occupied);
+    const yaNoCabe =
+      selectedStandId &&
+      standFit({
+        occupancy,
+        standId: selectedStandId,
+        eventDays: days,
+        wantedDays: daysForPlan(plan, days, participationDay),
+        shared: plan.shared,
+      }).kind === "ocupado";
+    if (fueraDeZona || yaNoCabe) {
       setSelectedStandId(null);
     }
     // El día que participa depende del plan: uno de dos días no lo pide.
     if (plan.days !== 1) setParticipationDay("");
+  }
+
+  function handleSelectDay(day: string) {
+    setParticipationDay(day);
+    // El mismo lugar puede estar libre un día y tomado el otro, así que
+    // cambiar de día puede dejar sin sentido el stand ya elegido.
+    if (selectedStandId && selectedPlan) {
+      const fit = standFit({
+        occupancy,
+        standId: selectedStandId,
+        eventDays: days,
+        wantedDays: daysForPlan(selectedPlan, days, day),
+        shared: selectedPlan.shared,
+      });
+      if (fit.kind === "ocupado") setSelectedStandId(null);
+    }
   }
 
   function handleContinueToPayment() {
@@ -198,10 +254,6 @@ export function RegistrationForm({
     }
     if (!logo) {
       setInfoError("Sube el logo de tu negocio.");
-      return;
-    }
-    if (needsDayChoice && !participationDay) {
-      setInfoError("Elige el día en el que vas a participar.");
       return;
     }
     if (needsElectricity && !electricityDetails.trim()) {
@@ -476,14 +528,53 @@ export function RegistrationForm({
             )}
           </div>
 
+          {/* El día va antes del mapa y no después: un stand puede estar
+              tomado el sábado y libre el domingo, así que sin saber qué
+              día es imposible decir cuáles están disponibles. */}
+          {needsDayChoice && (
+            <div className="mt-7">
+              <h3 className="font-heading text-lg font-bold text-ink">
+                2. ¿Qué día vas a participar?
+              </h3>
+              <p className="mt-1 text-sm text-ink-soft">
+                Tu plan es de un día. Los lugares libres cambian según cuál
+                elijas.
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2.5">
+                {days.map((day) => {
+                  const selected = participationDay === day;
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => handleSelectDay(day)}
+                      aria-pressed={selected}
+                      className={`min-h-[44px] rounded-full border-2 px-5 text-[15px] font-bold transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300/60 ${
+                        selected
+                          ? "border-pink-600 bg-pink-500 text-white shadow-[0_2px_0_0_var(--color-pink-700)]"
+                          : "border-pink-100 bg-white text-ink-soft hover:border-pink-300"
+                      }`}
+                    >
+                      {formatDayLong(day)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mt-7">
             <h3 className="font-heading text-lg font-bold text-ink">
-              2. Elige tu lugar en el mapa
+              {needsDayChoice ? "3" : "2"}. Elige tu lugar en el mapa
             </h3>
 
             {!selectedPlan ? (
               <p className="mt-2 rounded-2xl bg-cream px-4 py-3 text-sm text-ink-soft">
                 Primero elige tu plan: de eso depende qué lugares te tocan.
+              </p>
+            ) : needsDayChoice && !participationDay ? (
+              <p className="mt-2 rounded-2xl bg-cream px-4 py-3 text-sm text-ink-soft">
+                Elige tu día para ver qué lugares están libres.
               </p>
             ) : (
               <>
@@ -512,6 +603,7 @@ export function RegistrationForm({
                     selectedId={selectedStandId}
                     onSelect={(id) => setSelectedStandId(id)}
                     isLocked={(id) => !isStandAllowed(zoneRules, id)}
+                    fitFor={fitForStand}
                   />
                 </div>
               </>
@@ -709,39 +801,6 @@ export function RegistrationForm({
                   </p>
                 )}
               </div>
-
-              {needsDayChoice && (
-                <div>
-                  <label className={labelClass}>
-                    ¿Qué día vas a participar?
-                    <span className="text-pink-600"> *</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2.5">
-                    {days.map((day) => {
-                      const selected = participationDay === day;
-                      return (
-                        <button
-                          key={day}
-                          type="button"
-                          onClick={() => setParticipationDay(day)}
-                          aria-pressed={selected}
-                          className={`min-h-[44px] rounded-full border-2 px-5 text-[15px] font-bold transition-all focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-pink-300/60 ${
-                            selected
-                              ? "border-pink-600 bg-pink-500 text-white shadow-[0_2px_0_0_var(--color-pink-700)]"
-                              : "border-pink-100 bg-white text-ink-soft hover:border-pink-300"
-                          }`}
-                        >
-                          {formatDayLong(day)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <p className={helpClass}>
-                    Tu plan es de un día. Elige cuál para acomodarte en el mapa
-                    de ese día.
-                  </p>
-                </div>
-              )}
 
               <div>
                 <Checkbox

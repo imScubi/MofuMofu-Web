@@ -88,21 +88,15 @@ export async function PATCH(
     return NextResponse.json({ ok: true });
   }
 
-  // Rechazado y cancelado devuelven el lugar al mapa; la diferencia es
-  // que el cancelado ya estaba en el plan logístico y deja un hueco que
-  // el reacomodo puede cerrar.
-  const standStatus =
-    body.data.status === "approved"
-      ? "sold"
-      : body.data.status === "rejected" || body.data.status === "cancelled"
-        ? "available"
-        : "pending";
-
-  await supabase
-    .from("event_stands")
-    .update({ status: standStatus, updated_at: new Date().toISOString() })
-    .eq("event_id", registration.event_id)
-    .eq("stand_id", registration.stand_id);
+  // El estado del stand ya no se decide aquí: lo recalcula la base a
+  // partir de quién sigue vivo en él. Un stand con dos registros —dos
+  // compartidos, o dos expositores de días distintos— no queda libre
+  // porque uno se dé de baja, y eso no se puede resolver mirando sólo
+  // el registro que acaba de cambiar.
+  await supabase.rpc("refresh_stand_status", {
+    p_event_id: registration.event_id,
+    p_stand_id: registration.stand_id,
+  });
 
   return NextResponse.json({ ok: true });
 }
@@ -196,12 +190,12 @@ export async function DELETE(
     );
   }
 
-  // El stand vuelve a estar disponible en esa edición.
-  await supabase
-    .from("event_stands")
-    .update({ status: "available", updated_at: new Date().toISOString() })
-    .eq("event_id", registration.event_id)
-    .eq("stand_id", registration.stand_id);
+  // El stand se recalcula: puede seguir ocupado por el otro expositor
+  // si lo compartían o si iban en días distintos.
+  await supabase.rpc("refresh_stand_status", {
+    p_event_id: registration.event_id,
+    p_stand_id: registration.stand_id,
+  });
 
   // Los comprobantes ya no le sirven a nadie: se van con el registro.
   const proofPaths = [

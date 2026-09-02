@@ -5,7 +5,12 @@ import { Character } from "@/components/ui/Character";
 import { FlowerShape } from "@/components/ui/Decorations";
 import { createClient } from "@/lib/supabase/client";
 import { EVENT_CONFIG } from "@/lib/eventConfig";
-import type { EventRow, EventStandRow, EventZoneRow } from "@/lib/types";
+import type {
+  EventRow,
+  EventStandRow,
+  EventZoneRow,
+  StandOccupancyRow,
+} from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +86,18 @@ export default async function RegistroPage() {
     zonesByEvent[row.event_id]?.push(row);
   }
 
+  // Qué stands están tomados y en qué días. Sale de una función pública
+  // que sólo devuelve números de stand, no datos de quien los apartó.
+  const occupancyByEvent: Record<string, StandOccupancyRow[]> = {};
+  await Promise.all(
+    events.map(async (event) => {
+      const { data } = await supabase.rpc("stand_occupancy", {
+        p_event_id: event.id,
+      });
+      occupancyByEvent[event.id] = (data as StandOccupancyRow[]) ?? [];
+    })
+  );
+
   return (
     <main className="flex-1 px-4 py-10 sm:py-14">
       <div className="mx-auto mb-8 max-w-3xl text-center">
@@ -94,6 +111,7 @@ export default async function RegistroPage() {
         events={events}
         standsByEvent={standsByEvent}
         zonesByEvent={zonesByEvent}
+        occupancyByEvent={occupancyByEvent}
       />
     </main>
   );

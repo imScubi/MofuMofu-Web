@@ -30,6 +30,20 @@ export interface EventZoneRow {
   created_at: string;
 }
 
+/**
+ * Cuánto ocupa cada stand, día por día.
+ *
+ * Sale de la función `stand_occupancy`, que es pública a propósito: sólo
+ * devuelve números de stand, días y si el lugar es compartido, nunca
+ * datos de quien lo apartó.
+ */
+export interface StandOccupancyRow {
+  stand_id: string;
+  day: string;
+  is_shared: boolean;
+  taken: number;
+}
+
 /** Disponibilidad de un stand dentro de una edición concreta. */
 export interface EventStandRow {
   event_id: string;

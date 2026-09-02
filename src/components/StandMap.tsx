@@ -11,6 +11,7 @@ import {
   STAND_LAYOUT,
 } from "@/lib/standLayout";
 import type { EventStandRow, StandStatus } from "@/lib/types";
+import type { StandFit } from "@/lib/standAvailability";
 
 interface StandMapProps {
   eventId: string;
@@ -23,6 +24,11 @@ interface StandMapProps {
    * mapa no sabe de zonas: sólo pregunta.
    */
   isLocked?: (standId: string) => boolean;
+  /**
+   * Cómo le queda cada stand a quien está eligiendo. El mapa tampoco
+   * sabe de días ni de espacios compartidos: pregunta y pinta.
+   */
+  fitFor?: (standId: string) => StandFit | null;
 }
 
 // Los cuatro estados se distinguen SIN color, para daltonismo:
@@ -105,11 +111,36 @@ function LockGlyph() {
   );
 }
 
+/**
+ * Libre sólo para el día que pediste: alguien más lo tiene el otro día.
+ * Se distingue con la marca "1d", no sólo con el color.
+ */
+const PARTIAL_STYLE: StatusStyle = {
+  className: "bg-amber-100 ring-2 ring-amber-500 text-amber-500",
+  label: "Libre sólo tu día",
+};
+
+/** Queda medio lugar: lo compartirías con otro negocio. */
+const SHARED_STYLE: StatusStyle = {
+  className: "bg-lavender-100 ring-2 ring-lavender-500 text-lavender-500",
+  label: "Compartido, queda lugar",
+};
+
 /** Lugar libre que no le toca a este plan: se ve apartado, no roto. */
 const LOCKED_STYLE: StatusStyle = {
   className: "bg-lavender-100/70 border-2 border-dashed border-lavender-500 text-lavender-500",
   label: "No disponible para tu plan",
 };
+
+/** Media luna: el stand está partido entre dos negocios. */
+function HalfGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" className="h-[62%] w-[62%]" aria-hidden="true">
+      <circle cx="8" cy="8" r="5.4" fill="none" stroke="currentColor" strokeWidth={1.7} />
+      <path d="M8 2.6a5.4 5.4 0 000 10.8z" fill="currentColor" />
+    </svg>
+  );
+}
 
 /** El glifo que va dentro del cuadro del stand, por estado. */
 function standGlyph(status: StandStatus, id: string) {
@@ -144,6 +175,7 @@ export function StandMap({
   selectedId,
   onSelect,
   isLocked,
+  fitFor,
 }: StandMapProps) {
   const [stands, setStands] = useState<Record<string, EventStandRow>>(() =>
     Object.fromEntries(initialStands.map((s) => [s.stand_id, s]))
@@ -179,7 +211,17 @@ export function StandMap({
     };
   }, [eventId]);
 
-  // La leyenda del candado sólo aparece cuando hay algo que explicar.
+  // Las leyendas sólo aparecen cuando hay algo que explicar: enseñar un
+  // estado que no está en el mapa confunde más de lo que ayuda.
+  const fitCount = (kind: StandFit["kind"]) =>
+    fitFor
+      ? STAND_LAYOUT.filter(
+          (stand) => stand.reservable && fitFor(stand.id)?.kind === kind
+        ).length
+      : 0;
+  const partialCount = fitCount("parcial");
+  const sharedCount = fitCount("compartido");
+
   const lockedCount = isLocked
     ? STAND_LAYOUT.filter(
         (stand) =>
@@ -234,8 +276,28 @@ export function StandMap({
             // modo se podría elegir: si ya está apartado, lo que manda
             // es su estado real.
             const locked = status === "available" && Boolean(isLocked?.(stand.id));
-            const style = locked ? LOCKED_STYLE : STATUS_STYLES[status];
-            const isSelectable = stand.reservable && status === "available" && !locked;
+            // La ocupación por día manda sobre el resumen: un stand
+            // puede figurar "available" y aun así no admitir a quien
+            // está eligiendo, o al revés — figurar ocupado y tener el
+            // domingo libre.
+            const fit = !locked ? (fitFor?.(stand.id) ?? null) : null;
+            const blockedByFit = fit?.kind === "ocupado";
+
+            const style = locked
+              ? LOCKED_STYLE
+              : fit?.kind === "parcial"
+                ? PARTIAL_STYLE
+                : fit?.kind === "compartido"
+                  ? SHARED_STYLE
+                  : blockedByFit
+                    ? STATUS_STYLES[status === "available" ? "sold" : status]
+                    : STATUS_STYLES[status];
+
+            const isSelectable =
+              stand.reservable &&
+              status !== "blocked" &&
+              !locked &&
+              (fit ? fit.kind !== "ocupado" : status === "available");
             const isSelected = selectedId === stand.id;
 
             return (
@@ -243,6 +305,7 @@ export function StandMap({
                 key={stand.id}
                 type="button"
                 aria-label={`Stand ${stand.id}, ${style.label.toLowerCase()}`}
+                title={fit?.kind === "ocupado" ? fit.reason : style.label}
                 aria-pressed={isSelected}
                 disabled={!isSelectable}
                 onClick={() => onSelect(stand.id)}
@@ -260,7 +323,17 @@ export function StandMap({
                 )}
                 style={{ ...position, ...(isSelected ? undefined : style.style) }}
               >
-                {isSelected ? stand.id : locked ? <LockGlyph /> : standGlyph(status, stand.id)}
+                {isSelected ? (
+                  stand.id
+                ) : locked ? (
+                  <LockGlyph />
+                ) : fit?.kind === "compartido" ? (
+                  <HalfGlyph />
+                ) : fit?.kind === "parcial" ? (
+                  <span className="text-[9px] leading-none">1d</span>
+                ) : (
+                  standGlyph(blockedByFit ? "sold" : status, stand.id)
+                )}
               </button>
             );
           })}
@@ -286,6 +359,34 @@ export function StandMap({
           </span>
           Módulo de informes
         </span>
+        {partialCount > 0 && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink">
+            <span
+              className={clsx(
+                "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px] text-[9px] font-bold",
+                PARTIAL_STYLE.className
+              )}
+              aria-hidden="true"
+            >
+              1d
+            </span>
+            {PARTIAL_STYLE.label}
+          </span>
+        )}
+        {sharedCount > 0 && (
+          <span className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink">
+            <span
+              className={clsx(
+                "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-[7px]",
+                SHARED_STYLE.className
+              )}
+              aria-hidden="true"
+            >
+              <HalfGlyph />
+            </span>
+            {SHARED_STYLE.label}
+          </span>
+        )}
         {lockedCount > 0 && (
           <span className="inline-flex items-center gap-2 rounded-full border border-pink-100 bg-white py-1.5 pl-2 pr-3 text-[13px] font-bold text-ink">
             <span
